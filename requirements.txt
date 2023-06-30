@@ -1,3 +1,4 @@
 telegram
 pyyaml
 schema
+enum34==1.1.8
