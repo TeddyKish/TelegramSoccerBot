@@ -6,19 +6,27 @@ class TFABConfiguration(object):
     """
     TFAB's configuration object, to be used within PTB.
     """
-    def __init__(self, tfab_yaml_configuration_path):
+    def __init__(self, tfab_yaml_configuration_path, custom_schema=None):
         """
         Creates a member in this class for every key in <tfab_yaml_configuration_path>.
         :param tfab_yaml_configuration_path: The path to the configuration file.
         """
 
         # Schema for the yaml configuration
-        self.__schema__ = Schema(
-            {
-                'TELEGRAM_BOT_TOKEN': And(str),
-                'ALL_PLAYERS_DATABASE_PATH': And(str)
-            }
-        )
+        if custom_schema is not None:
+            self.__schema = custom_schema
+        else:
+            self.__schema__ = Schema(
+                {
+                    'TELEGRAM_BOT_TOKEN': And(str),
+                    'DATABASE_PATH': And(str),
+                    'ALL_PLAYERS_TABLE': And(str),
+                    'ALL_PLAYERS_NAME_COLUMN': And(str),
+                    'USER_RANKINGS_TABLE_NAME_PREFIX': And(str),
+                    'RANKING_TABLE_NAME_COLUMN': And(str),
+                    'RANKING_TABLE_RANK_COLUMN': And(str)
+                }
+            )
 
         try:
             with open(tfab_yaml_configuration_path, "r") as conf_file:
