@@ -118,6 +118,21 @@ def add_new_ranking_table(chat_id):
     tfab_app.tfab_db.execute_query(table_creation_query)
 
 
+def generate_rankings_message(players_and_rankings, with_skipped=False):
+    """
+    Prints A nice message with the players and their rankings.
+    :param players_and_rankings: A list that contains  player-rank tuples
+    :param with_skipped: Whether to print players that were skipped, too
+    """
+    printed_message = "This is your ranking list:"
+    player_index = 1
+    for player_rank in players_and_rankings:
+        if str(player_rank[1]) != "0.0":
+            printed_message += "\n" + "{0}.{1} = {2}".format(player_index, player_rank[0], player_rank[1])
+            player_index = player_index + 1
+
+    return printed_message
+
 async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=update.effective_chat.id, text="Welcome to Botito! Use /help to proceed")
 
@@ -158,6 +173,7 @@ async def join_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                         "Please write a number between 1-10.\n"
                                         "Numbers like 3.5 or 7.8 are okay too.\n"
                                         "Write 0 if you want to skip the player.\n"
+                                        "If you want to stop, write /cancel.\n"
                                         "Do you agree?", reply_markup=keyboard)
     context.user_data["last_player"] = None
     return TFABApplication.JOIN_PENDING_RANK
@@ -168,7 +184,6 @@ async def join_pending_rank_handler(update: Update, context: ContextTypes.DEFAUL
     cb_query = update.callback_query
 
     if cb_query:
-        tfab_logger.debug("CallBack Query's data for Pending-Join operation was: " + cb_query.data)
         await cb_query.answer()
     else:
         if context.user_data["last_player"] is not None:
@@ -179,6 +194,7 @@ async def join_pending_rank_handler(update: Update, context: ContextTypes.DEFAUL
                 context.user_data["last_player"], update.message.text)
 
             tfab_app.tfab_db.execute_query(insertion_query)
+            tfab_app.tfab_db.commit_changes()
             await context.bot.send_message(chat_id=update.effective_chat.id,
                                            text="Saved ranking for {0}".format(context.user_data["last_player"]))
 
@@ -244,7 +260,19 @@ async def rank_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def show_alltime_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    pass
+    if not check_if_user_already_exists(update.effective_chat.id):
+        await context.bot.send_message(chat_id=update.effective_chat.id,
+                                       text="You haven't joined the Rankers Group yet - try running /join")
+        return
+
+    tfab_app = TFABApplication.get_instance()
+    get_rankings_query = """SELECT {0},{1} FROM {2}""".format(
+        tfab_app.tfab_configuration.RANKING_TABLE_NAME_COLUMN, tfab_app.tfab_configuration.RANKING_TABLE_RANK_COLUMN,
+        generate_ranker_table_name(update.effective_chat.id)
+    )
+    results = tfab_app.tfab_db.execute_query(get_rankings_query)
+    await context.bot.send_message(chat_id=update.effective_chat.id,
+                                   text=generate_rankings_message(results))
 
 
 async def unknown_command_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
