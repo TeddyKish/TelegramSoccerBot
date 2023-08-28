@@ -11,7 +11,7 @@ def start_operation():
     Currently encompasses all the logic of this bot.
     :return:
     """
-    tfab_app = TFABSystem(TFABSystem.DEFAULT_TFAB_CONFIGURATION_PATH)
+    tfab_app = TFABSystem()
     tfab_app.run_system()
 
 if __name__ == '__main__':

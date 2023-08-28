@@ -1,10 +1,11 @@
 # TelegramSoccerBot
 A Telegram Bot intended to save time in management of soccer matches.
+Currently expects to receive a YML configuration located at `./tfab_data/tfab_configuration.yaml`.
 
 ## Botito's Menu - Prototype
 ### Private Chat View:
     /help -> Explain about the different options
-    /start -> What's the secret password? -> Great! What's your name? -> Start ranking all available players
+    /start -> What's the secret password? -> Great! What's your name? -> Thanks! Use /help to proceed.
     /ranker
         /rank -> Who do you want to rank? -> Rank that player
         /myranking -> Prints a message with all ranked players, and a list of all unranked players
