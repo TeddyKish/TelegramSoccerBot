@@ -1,7 +1,6 @@
 from enum import Enum
 from tfab_system import TFABSystem
 
-
 class ProcessExitCodes(Enum):
     STATUS_SUCCESS = 0
     STATUS_FAILURE = 1

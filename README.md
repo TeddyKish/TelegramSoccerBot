@@ -4,16 +4,15 @@ Currently expects to receive a YML configuration located at `./tfab_data/tfab_co
 
 ## Botito's Menu - Prototype
 ### Private Chat View:
-    /help -> Explain about the different options
-    /start -> What's the secret password? -> Great! What's your name? -> Thanks! Use /help to proceed.
+    /help | /start -> Explain about the different options
     /ranker
+    If not logged in -> What's the secret password? -> Thanks! Use /help to proceed.
         /rank -> Who do you want to rank? -> Rank that player
         /myranking -> Prints a message with all ranked players, and a list of all unranked players
         /settings
-            /changename -> What's your name? -> Succesfully updated
-            /getadmin -> What's the Admin password? -> Successfully made you an admin of this bot!
             /reset -> Are you sure you want to reset all rankings? -> Successfully reset rankings, deletes the chat and everything
     /admin
+    If not logged in -> What's the secret password? -> Thanks! Use /help to proceed.
         /gameday
             /list
                 /set -> Please send today's message -> Successfully loaded today's list

@@ -3,22 +3,6 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKe
 from telegram.ext import filters, MessageHandler, ApplicationBuilder, ContextTypes, CommandHandler, CallbackQueryHandler
 from telegram.ext import ConversationHandler
 
-class TFABCommand(object):
-    """
-    Represents an interactive command within TFAB.
-    """
-
-    def __init__(self, command_string, command_description, command_callback):
-        """
-        :param command_string: The string the user should enter to invoke the command
-        :param command_description: The description of this command, to be printed on demand
-        :param command_callback: The function to call when this command has been invoked
-        """
-
-        self.str = command_string
-        self.desc = command_description
-        self.callback = command_callback
-
 class TFABApplication(object):
     """
     Handles the entirety of the command handling and logic.
@@ -35,8 +19,8 @@ class TFABApplication(object):
         """
         Constructs a TFABApplication.
         """
-        self.configuration = tfab_configuration
-        self.db = tfab_db
+        self.__configuration = tfab_configuration
+        self.__db = tfab_db
         self.__initialize_telegram_app()
         self.__initialize_handlers()
         tfab_logger.debug("TFABApplication successfully initialized")
@@ -45,59 +29,118 @@ class TFABApplication(object):
         """
         Initiailizes PTB and the connection to our bot.
         """
-        self.ptb_app = ApplicationBuilder().token(self.configuration.TELEGRAM_BOT_TOKEN).build()
+        self.__ptb_app = ApplicationBuilder().token(self.__configuration.TELEGRAM_BOT_TOKEN).build()
 
     def __initialize_handlers(self):
         """
         Initializes the different handlers for this application.
         """
-        conv_handler_commands = []
+        conversation_handler = ConversationHandler(
+        entry_points=[CommandHandler(["start", "help"], InputHandlers.entrypoint_handler)],
+        states={
+            InputHandlers.GENERAL_MENU: [
+                CallbackQueryHandler(InputHandlers.ranker_menu_handler, pattern=str(InputHandlers.RANKER_MENU)),
+                CallbackQueryHandler(InputHandlers.admin_menu_handler, pattern=str(InputHandlers.ADMIN_MENU)),
+            ],
+            InputHandlers.RANKER_MENU: [
 
-        # Commands Handlers
-        for cmd in tfab_user_commands:
-            if cmd.str not in conv_handler_commands:
-                self.ptb_app.add_handler(CommandHandler(cmd.str, cmd.callback))
-                
-        self.ptb_app.add_handler(MessageHandler(filters.COMMAND, unknown_command_handler))
-        self.ptb_app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), unknown_text_handler))
+            ]
+        },
+        fallbacks=[CommandHandler(["start", "help"], InputHandlers.entrypoint_handler)]
+        )
+
+        # Add ConversationHandler to application that will be used for handling updates
+        self.__ptb_app.add_handler(conversation_handler)
+
+        self.__ptb_app.add_handler(MessageHandler(filters.COMMAND, InputHandlers.unknown_command_handler))
+        self.__ptb_app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), InputHandlers.unknown_text_handler))
 
     def run(self):
         """
         Performs the actual logic of the TFABApplication.
         """
-        self.ptb_app.run_polling()
+        self.__ptb_app.run_polling()
 
-async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await context.bot.send_message(chat_id=update.effective_chat.id, text="Welcome to Botito! Use /help to proceed")
-
-
-async def help_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    help_message = """שלום רב! אני שמח מאוד שהצטרפת
-מטרת הבוטיטו היא להפוך את תהליך יצירת הכוחות בכדורגל לאוטומטי לחלוטין!
-פעולות אפשריות:
-"""
-    global tfab_user_commands
-    keyboard = []
-    for cmd in tfab_user_commands:
-        keyboard.append([InlineKeyboardButton(cmd.str, callback_data=cmd.str)])
-
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await context.bot.send_message(update.effective_chat.id, text=help_message, reply_markup=reply_markup)
-
-async def unknown_command_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await context.bot.send_message(chat_id=update.effective_chat.id, text="Sorry, this command doesn't exist.")
-
-async def unknown_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await context.bot.send_message(chat_id=update.effective_chat.id, text="Sorry, this option doesn't exist.")
-
-tfab_user_commands = []
-tfab_user_commands.append(TFABCommand("start", "Starts the first time interaction with Botito", start_handler))
-tfab_user_commands.append(TFABCommand("help", "Shows the features supported by Botito", help_handler))
-
-
-def start_operation():
+class InputHandlers(object):
     """
-    Currently encompasses all the logic of this bot.
-    :return:
+    Contains the different input handlers for this bot.
     """
-    # tfab_app.__app.add_handler(CallbackQueryHandler(button_callback))
+    
+    GENERAL_MENU, \
+        RANKER_MENU, \
+            RANKER_MENU_RANK, \
+            RANKER_MENU_SHOW_MY_RANKINGS, \
+            RANKER_MENU_SETTINGS, \
+        ADMIN_MENU, \
+            ADMIN_MENU_GAMES, \
+            ADMIN_MENU_PLAYERS = range(8)
+    
+    @staticmethod
+    async def entrypoint_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Send message on `/start`."""
+        # Get user that sent /start and log his name
+        user = update.message.from_user
+        tfab_logger.info("\nTFAB: User %s started the conversation.\n", user.first_name)
+
+        start_text = """ברוך הבא לבוטיטו!
+הבוטיטו הוא בוט שנועד ליצור כוחות באופן אוטומטי.
+לפניך התפריטים הבאים:"""
+        
+        keyboard = [
+            [
+                InlineKeyboardButton("דירוגים", callback_data=str(InputHandlers.RANKER_MENU)),
+                InlineKeyboardButton("מנהלים", callback_data=str(InputHandlers.ADMIN_MENU)),
+            ]
+        ]
+
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.message.reply_text(start_text, reply_markup=reply_markup)
+
+        return InputHandlers.GENERAL_MENU
+    
+    @staticmethod
+    async def ranker_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """
+        Handle the rankers menu.
+        """
+        query = update.callback_query
+        await query.answer()
+
+        text = """להלן פעולות הדירוגים האפשריות:"""
+
+        keyboard = [
+                [InlineKeyboardButton("דרג שחקנים", callback_data=str(InputHandlers.RANKER_MENU_RANK))],
+                [InlineKeyboardButton("הראה את הדירוגים שלי", callback_data=str(InputHandlers.RANKER_MENU_SHOW_MY_RANKINGS))],
+                [InlineKeyboardButton("הגדרות", callback_data=str(InputHandlers.RANKER_MENU_SETTINGS))]
+        ]
+
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.edit_message_text(text, reply_markup=reply_markup)
+        return InputHandlers.RANKER_MENU
+
+    @staticmethod
+    async def admin_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """
+        Handle the admin menu.
+        """
+        query = update.callback_query
+        await query.answer()
+
+        text = """להלן פעולות המנהלים האפשריות:"""
+
+        keyboard = [
+                [InlineKeyboardButton("נהל משחקים", callback_data=str(InputHandlers.ADMIN_MENU_GAMES))],
+                [InlineKeyboardButton("נהל שחקנים", callback_data=str(InputHandlers.ADMIN_MENU_PLAYERS))]
+        ]
+
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.edit_message_text(text, reply_markup=reply_markup)
+        return InputHandlers.ADMIN_MENU
+
+    @staticmethod
+    async def unknown_command_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="Sorry, this command doesn't exist.\nUse /help")
+    
+    @staticmethod
+    async def unknown_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="Sorry, this option doesn't exist.\nUse /help")
