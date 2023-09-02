@@ -39,11 +39,34 @@ class TFABApplication(object):
         entry_points=[CommandHandler(["start", "help"], InputHandlers.entrypoint_handler)],
         states={
             InputHandlers.GENERAL_MENU: [
-                CallbackQueryHandler(InputHandlers.ranker_menu_handler, pattern=str(InputHandlers.RANKER_MENU)),
+                CallbackQueryHandler(InputHandlers.general_ranking_menu_handler, pattern=str(InputHandlers.RANKER_MENU)),
                 CallbackQueryHandler(InputHandlers.admin_menu_handler, pattern=str(InputHandlers.ADMIN_MENU)),
             ],
             InputHandlers.RANKER_MENU: [
-
+                CallbackQueryHandler(InputHandlers.pass_handler, pattern=str(InputHandlers.RANKER_MENU_RANK_SPECIFIC_PLAYER)),
+                CallbackQueryHandler(InputHandlers.pass_handler, pattern=str(InputHandlers.RANKER_MENU_RANK_EVERYONE)),
+                CallbackQueryHandler(InputHandlers.pass_handler, pattern=str(InputHandlers.RANKER_MENU_SHOW_MY_RANKINGS)),
+            ],
+            InputHandlers.ADMIN_MENU: [
+                CallbackQueryHandler(InputHandlers.pass_handler, pattern=str(InputHandlers.ADMIN_MENU_GAMES)),
+                CallbackQueryHandler(InputHandlers.pass_handler, pattern=str(InputHandlers.ADMIN_MENU_PLAYERS)),
+            ],
+            InputHandlers.ADMIN_MENU_GAMES: [
+                CallbackQueryHandler(InputHandlers.pass_handler, pattern=str(InputHandlers.GAMES_MENU_LIST)),
+                CallbackQueryHandler(InputHandlers.pass_handler, pattern=str(InputHandlers.GAMES_MENU_GROUPS)),
+            ],
+            InputHandlers.GAMES_MENU_LIST: [
+                CallbackQueryHandler(InputHandlers.pass_handler, pattern=str(InputHandlers.GAMES_MENU_LIST_SET)),
+                CallbackQueryHandler(InputHandlers.pass_handler, pattern=str(InputHandlers.GAMES_MENU_LIST_RANK_OUTSIDER)),
+                CallbackQueryHandler(InputHandlers.pass_handler, pattern=str(InputHandlers.GAMES_MENU_LIST_SHOW_TODAY)),
+            ],
+            InputHandlers.GAMES_MENU_GROUPS: [
+                CallbackQueryHandler(InputHandlers.pass_handler, pattern=str(InputHandlers.GAMES_MENU_GROUPS_GENERATE)),
+                CallbackQueryHandler(InputHandlers.pass_handler, pattern=str(InputHandlers.GAMES_MENU_GROUPS_SHOW)),
+            ],
+            InputHandlers.ADMIN_MENU_PLAYERS: [
+                CallbackQueryHandler(InputHandlers.pass_handler, pattern=str(InputHandlers.PLAYERS_MENU_EDIT)),
+                CallbackQueryHandler(InputHandlers.pass_handler, pattern=str(InputHandlers.PLAYERS_MENU_SHOW)),
             ]
         },
         fallbacks=[CommandHandler(["start", "help"], InputHandlers.entrypoint_handler)]
@@ -65,15 +88,24 @@ class InputHandlers(object):
     """
     Contains the different input handlers for this bot.
     """
-    
+
     GENERAL_MENU, \
         RANKER_MENU, \
-            RANKER_MENU_RANK, \
+            RANKER_MENU_RANK_EVERYONE, \
+            RANKER_MENU_RANK_SPECIFIC_PLAYER, \
             RANKER_MENU_SHOW_MY_RANKINGS, \
-            RANKER_MENU_SETTINGS, \
         ADMIN_MENU, \
             ADMIN_MENU_GAMES, \
-            ADMIN_MENU_PLAYERS = range(8)
+                GAMES_MENU_LIST, \
+                    GAMES_MENU_LIST_SET, \
+                    GAMES_MENU_LIST_RANK_OUTSIDER, \
+                    GAMES_MENU_LIST_SHOW_TODAY, \
+                GAMES_MENU_GROUPS, \
+                    GAMES_MENU_GROUPS_GENERATE, \
+                    GAMES_MENU_GROUPS_SHOW, \
+            ADMIN_MENU_PLAYERS,  \
+                PLAYERS_MENU_EDIT, \
+                PLAYERS_MENU_SHOW = range(17)
     
     @staticmethod
     async def entrypoint_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -99,7 +131,7 @@ class InputHandlers(object):
         return InputHandlers.GENERAL_MENU
     
     @staticmethod
-    async def ranker_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def general_ranking_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
         Handle the rankers menu.
         """
@@ -109,9 +141,9 @@ class InputHandlers(object):
         text = """להלן פעולות הדירוגים האפשריות:"""
 
         keyboard = [
-                [InlineKeyboardButton("דרג שחקנים", callback_data=str(InputHandlers.RANKER_MENU_RANK))],
-                [InlineKeyboardButton("הראה את הדירוגים שלי", callback_data=str(InputHandlers.RANKER_MENU_SHOW_MY_RANKINGS))],
-                [InlineKeyboardButton("הגדרות", callback_data=str(InputHandlers.RANKER_MENU_SETTINGS))]
+                [InlineKeyboardButton("דרג שחקן ספציפי", callback_data=str(InputHandlers.RANKER_MENU_RANK_SPECIFIC_PLAYER))],
+                [InlineKeyboardButton("דרג את כולם", callback_data=str(InputHandlers.RANKER_MENU_RANK_EVERYONE))],
+                [InlineKeyboardButton("הצג דירוגים שלי", callback_data=str(InputHandlers.RANKER_MENU_SHOW_MY_RANKINGS))]
         ]
 
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -138,9 +170,22 @@ class InputHandlers(object):
         return InputHandlers.ADMIN_MENU
 
     @staticmethod
+    async def pass_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """
+        temporary- handles currently unimplemented options.
+        """
+        query = update.callback_query
+        await query.answer()
+
+        text = """אופציה זו עדיין לא מומשה, ניתן לחזור להתחלה עם  /help"""
+
+        await query.edit_message_text(text)
+        return ConversationHandler.END
+
+    @staticmethod
     async def unknown_command_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        await context.bot.send_message(chat_id=update.effective_chat.id, text="Sorry, this command doesn't exist.\nUse /help")
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="האופציה הזו לא קיימת, ניתן לחזור להתחלה עם /help")
     
     @staticmethod
     async def unknown_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        await context.bot.send_message(chat_id=update.effective_chat.id, text="Sorry, this option doesn't exist.\nUse /help")
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="האופציה הזו לא קיימת, ניתן לחזור להתחלה עם /help")

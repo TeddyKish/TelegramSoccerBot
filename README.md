@@ -9,11 +9,9 @@ Currently expects to receive a YML configuration located at `./tfab_data/tfab_co
     If not logged in -> What's the secret password? -> Thanks! Use /help to proceed.
         /rank -> Who do you want to rank? -> Rank that player
         /myranking -> Prints a message with all ranked players, and a list of all unranked players
-        /settings
-            /reset -> Are you sure you want to reset all rankings? -> Successfully reset rankings, deletes the chat and everything
     /admin
     If not logged in -> What's the secret password? -> Thanks! Use /help to proceed.
-        /gameday
+        /games
             /list
                 /set -> Please send today's message -> Successfully loaded today's list
                 /rankmazmin -> What's the name of the mazmin? -> Give them a number -> Do they have special attributes -> Successfully saved <mazmin_name>'s ranking
