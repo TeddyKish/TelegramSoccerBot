@@ -1,6 +1,6 @@
 # TelegramSoccerBot
-A Telegram Bot intended to save time in management of soccer matches.
-Currently expects to receive a YML configuration located at `./tfab_data/tfab_configuration.yaml`.
+    A Telegram Bot intended to save time in management of soccer matches.
+    Currently expects to receive a YML configuration located at `./tfab_data/tfab_configuration.yaml`.
 
 ## Botito's Menu - Prototype
 ### Private Chat View:
@@ -20,18 +20,20 @@ Currently expects to receive a YML configuration located at `./tfab_data/tfab_co
                 /generate -> Generates today's groups, with the sum of each group at the end
                 /show -> Shows today's groups
         /players
+            /add -> What's the player name? -> Characteristics -> Added successfully
+            /edit -> What's the player name? -> Player edit menu (currently- GK/Attacker/Defender)
             /show -> What's the player name? (or 'all' for everyone) -> Shows all players and their characteristics
-            /edit -> What's the player name? -> Player edit menu (currently- GK/ATT/DEF/MID)
+            /delete -> What's the player name? -> Succesfully deleted X.
 
 ### Group View:
     /help -> Explain about the different options
     /todayinfo -> Shows today's different groups with their score sum, or an indicative message if there are no generated groups yet
 
-##  Version 1.0 
-The prototype above will be implemented to completion.
+##  Version 1.0:
+    The prototype above will be implemented to completion.
 
 ## Version 2.0
-Some niche features, like:
-* Players that want to be put together in the same group
-* Additional features for player characteristics
-* TBA
+    Some niche features, like:
+    * Players that want to be put together in the same group
+    * Additional features for player characteristics
+    * TBA

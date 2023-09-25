@@ -2,6 +2,6 @@ import logging
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.DEBUG
+    level=logging.INFO
 )
 tfab_logger = logging.getLogger(__name__)
