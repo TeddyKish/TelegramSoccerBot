@@ -46,8 +46,8 @@ class TFABApplication(object):
         """
         Constructs a TFABApplication.
         """
-        self.__configuration = tfab_configuration
-        self.__db = tfab_db
+        self.configuration = tfab_configuration
+        self.db = tfab_db
         self.__initialize_telegram_app()
         self.__initialize_handlers()
         tfab_logger.debug("TFABApplication successfully initialized")
@@ -56,7 +56,7 @@ class TFABApplication(object):
         """
         Initiailizes PTB and the connection to our bot.
         """
-        self.__ptb_app = ApplicationBuilder().token(self.__configuration.TELEGRAM_BOT_TOKEN).build()
+        self.__ptb_app = ApplicationBuilder().token(self.configuration.TELEGRAM_BOT_TOKEN).build()
 
     def __initialize_handlers(self):
         """
@@ -149,7 +149,7 @@ class InputHandlers(object):
             await update.message.reply_text(start_text, reply_markup=reply_markup)
         elif update.callback_query is not None:
             start_text = """הפעולה בוצעה בהצלחה.
-            לפניך התפריטים הבאים:"""
+לפניך התפריטים הבאים:"""
             await update.callback_query.edit_message_text(start_text, reply_markup=reply_markup)
 
         return TFABApplication.GENERAL_MENU
@@ -188,6 +188,10 @@ class InputHandlers(object):
         await context.bot.send_message(chat_id=update.effective_chat.id,
                                        text="האופציה הזו לא קיימת, ניתן לחזור להתחלה עם /help")
 
+    @staticmethod
+    async def illegal_situation_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        await context.bot.send_message(chat_id=update.effective_chat.id,
+                                       text="הגעת למצב בלתי אפשרי, דווח על זה במהירות למפתחים")
 
 class RankersMenuHandlers(object):
     """
@@ -291,26 +295,25 @@ class AdminMenuHandlers(object):
 
                 # Situation 3 - Check if it was a characteristic
                 elif query.data in list(tfab_consts.PlayerCharacteristics.values()):
-                    if query.data == tfab_consts.PlayerCharacteristics["GOALKEEPER"]:
-                        pass
-                    elif query.data == tfab_consts.PlayerCharacteristics["DEFENSIVE"]:
-                        pass
-                    elif query.data == tfab_consts.PlayerCharacteristics["OFFENSIVE"]:
-                        pass
-                    elif query.data == tfab_consts.PlayerCharacteristics["ALLAROUND"]:
-                        pass
+                    player_name = user_data[UserDataIndices.CONTEXTUAL_ADDED_PLAYER]
+                    characteristic = None
+                    if query.data in [tfab_consts.PlayerCharacteristics["GOALKEEPER"],
+                                      tfab_consts.PlayerCharacteristics["DEFENSIVE"],
+                                      tfab_consts.PlayerCharacteristics["OFFENSIVE"],
+                                      tfab_consts.PlayerCharacteristics["ALLAROUND"]]:
+                        characteristic = query.data
 
-                    # Global things to do after choosing the characteristic
-                    # Insert name and characteristic to the DB
-
+                    if not player_name or not characteristic:
+                        return await InputHandlers.illegal_situation_handler(update, context)
+                    TFABApplication.get_instance().db.insert_player(player_name, characteristic)
                     user_data = dict()
                     res = await InputHandlers.entrypoint_handler(update, context)
                     return res
                 else:
-                    pass # Illegal operation
+                    return await InputHandlers.illegal_situation_handler(update, context)
             elif message is not None:
                 # Situation 2
-                user_data[UserDataIndices.CONTEXTUAL_ADDED_PLAYER] = message
+                user_data[UserDataIndices.CONTEXTUAL_ADDED_PLAYER] = message.text
 
                 text = """בחר את סוג השחקן:"""
                 keyboard = [

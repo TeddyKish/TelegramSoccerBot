@@ -50,3 +50,4 @@ class TFABSystem(object):
         except Exception as e:
             tfab_logger.error("TFAB Exception occured: ", str(e))
             raise TFABException("TFAB Exception occured: ", str(e))
+            exit(1)
