@@ -8,3 +8,11 @@ PlayerCharacteristics = \
     "OFFENSIVE": "ATT",
     "ALLAROUND": "ALL"
 }
+
+PlayerPositionToHebrew = \
+{
+    "GK": "שוער",
+    "DEF": "הגנה",
+    "ATT": "התקפה",
+    "ALL": "כל המגרש"
+}

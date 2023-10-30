@@ -93,7 +93,7 @@ class TFABApplication(object):
                 ],
                 TFABApplication.ADMIN_MENU_PLAYERS: [
                     CallbackQueryHandler(AdminMenuHandlers.PlayersMenuHandlers.add_player_handler, pattern=str(TFABApplication.PLAYERS_MENU_ADD) + "|" + "|".join(list(tfab_consts.PlayerCharacteristics.values()))),
-                    CallbackQueryHandler(InputHandlers.pass_handler, pattern=str(TFABApplication.PLAYERS_MENU_SHOW)),
+                    CallbackQueryHandler(AdminMenuHandlers.PlayersMenuHandlers.show_players_handler, pattern=str(TFABApplication.PLAYERS_MENU_SHOW)),
                     CallbackQueryHandler(InputHandlers.pass_handler, pattern=str(TFABApplication.PLAYERS_MENU_EDIT)),
                     CallbackQueryHandler(InputHandlers.pass_handler, pattern=str(TFABApplication.PLAYERS_MENU_DELETE)),
                 ],
@@ -148,9 +148,10 @@ class InputHandlers(object):
 
             await update.message.reply_text(start_text, reply_markup=reply_markup)
         elif update.callback_query is not None:
-            start_text = """הפעולה בוצעה בהצלחה.
-לפניך התפריטים הבאים:"""
-            await update.callback_query.edit_message_text(start_text, reply_markup=reply_markup)
+            start_text = """הפעולה בוצעה בהצלחה."""
+            await update.callback_query.edit_message_text(start_text)
+            menus_text = """לפניך התפריטים הבאים:"""
+            await context.bot.send_message(chat_id=update.effective_chat.id, text=menus_text, reply_markup=reply_markup)
 
         return TFABApplication.GENERAL_MENU
 
@@ -330,6 +331,22 @@ class AdminMenuHandlers(object):
             else:
                 tfab_logger.log("Illegal state in bot.", logging.CRITICAL)
                 raise tfab_exception.TFABException("Add player handler reached invalid state")
+
+        @staticmethod
+        async def show_players_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+            query = update.callback_query
+
+            # Situation 1
+            if query is None:
+                tfab_logger.log("Illegal state in bot.", logging.CRITICAL)
+                raise tfab_exception.TFABException("Add player handler reached invalid state")
+
+            await query.answer()
+
+            all_players_message = TFABApplication.get_instance().db.show_all_players()
+            await context.bot.send_message(chat_id=update.effective_chat.id, text=all_players_message)
+
+            return await InputHandlers.entrypoint_handler(update, context)
 
 
 class UserDataIndices(object):

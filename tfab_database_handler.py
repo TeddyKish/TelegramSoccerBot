@@ -1,3 +1,4 @@
+import tfab_consts
 from tfab_exception import TFABException
 from tfab_logger import tfab_logger
 from pymongo import MongoClient
@@ -24,11 +25,39 @@ class TFABDBHandler(object):
         """
         new_player = \
             {TFABDBHandler.PLAYER_NAME_KEY: player_name, TFABDBHandler.PLAYER_CHARACTERISTICS_KEY: characteristics}
-        collection = self.db[TFABDBHandler.PLAYERS_COLLECTION_NAME]
+        players_collection = self.__get_collection(TFABDBHandler.PLAYERS_COLLECTION_NAME)
+
+        players_collection.insert_one(new_player)
+
+    def show_all_players(self):
+        """
+        :return: A string that contains information about all the available players in the DB.
+        """
+        players_collection = self.__get_collection(TFABDBHandler.PLAYERS_COLLECTION_NAME)
+        all_players = players_collection.find()
+
+        i = 1
+        roster_message = ""
+        for player in all_players:
+            roster_message += "{0}.{1} - {2}\n".format(
+                                   i,
+                                   player[TFABDBHandler.PLAYER_NAME_KEY],
+                                   tfab_consts.PlayerPositionToHebrew[player[TFABDBHandler.PLAYER_CHARACTERISTICS_KEY]])
+            i = i + 1
+
+        if roster_message == "":
+            return roster_message
+        return roster_message[:-1] # Removes the last \n in the string
+
+    def __get_collection(self, collection_name):
+        """
+        :return: The requested collection, if there were no errors.
+        """
+        collection = self.db[collection_name]
         if collection is None:
             raise TFABException("Unable to access the collection when attempting to insert a player")
 
-        collection.insert_one(new_player)
+        return collection
 
     def __del__(self):
         self.mongo_client.close()
