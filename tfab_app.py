@@ -69,6 +69,7 @@ class TFABApplication(object):
                     CallbackQueryHandler(RankersMenuHandlers.rankers_menu_handler, pattern=str(TFABApplication.RANKER_MENU)),
                     CallbackQueryHandler(AdminMenuHandlers.admin_menu_handler, pattern=str(TFABApplication.ADMIN_MENU)),
                 ],
+                # TODO: add here -> state for "go back", that holds all of the different functions
                 TFABApplication.RANKER_MENU: [
                     CallbackQueryHandler(InputHandlers.pass_handler, pattern=str(TFABApplication.RANKER_MENU_RANK_SPECIFIC_PLAYER)),
                     CallbackQueryHandler(InputHandlers.pass_handler, pattern=str(TFABApplication.RANKER_MENU_RANK_EVERYONE)),
@@ -95,7 +96,7 @@ class TFABApplication(object):
                     CallbackQueryHandler(AdminMenuHandlers.PlayersMenuHandlers.add_player_handler, pattern=str(TFABApplication.PLAYERS_MENU_ADD) + "|" + "|".join(list(tfab_consts.PlayerCharacteristics.values()))),
                     CallbackQueryHandler(AdminMenuHandlers.PlayersMenuHandlers.show_players_handler, pattern=str(TFABApplication.PLAYERS_MENU_SHOW)),
                     CallbackQueryHandler(InputHandlers.pass_handler, pattern=str(TFABApplication.PLAYERS_MENU_EDIT)),
-                    CallbackQueryHandler(InputHandlers.pass_handler, pattern=str(TFABApplication.PLAYERS_MENU_DELETE)),
+                    CallbackQueryHandler(AdminMenuHandlers.PlayersMenuHandlers.delete_player_handler, pattern=str(TFABApplication.PLAYERS_MENU_DELETE)),
                 ],
                 TFABApplication.GOT_INPUT: [
                     MessageHandler(filters.TEXT & ~filters.COMMAND, InputHandlers.text_input_handler)
@@ -128,6 +129,29 @@ class InputHandlers(object):
     async def entrypoint_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Send message on `/start` or `/help`."""
 
+        class EntryPointStates:
+            START = 0,
+            END_OF_OPERATION = 1,
+            ILLEGAL = 2
+
+        def get_entry_method(update, context):
+            """
+            :param update: The update received.
+            :return: The method by which this function was called.
+            """
+            if update.message is not None and (update.message.text == "/start" or update.message.text == "/help"):
+                # User started the interaction
+                return EntryPointStates.START
+            if (update.message is None and update.callback_query is not None) or \
+               (update.message is not None and update.callback_query is None):
+                # Got here through an operation whose last interaction was either :
+                # 1. A callback query
+                # 2. A message
+                return EntryPointStates.END_OF_OPERATION
+
+            # Bugs
+            return EntryPointStates.ILLEGAL
+
         keyboard = [
             [
                 InlineKeyboardButton("דירוגים", callback_data=str(TFABApplication.RANKER_MENU)),
@@ -137,7 +161,8 @@ class InputHandlers(object):
 
         reply_markup = InlineKeyboardMarkup(keyboard)
 
-        if update.message is not None:
+        entry_method = get_entry_method(update, context)
+        if entry_method == EntryPointStates.START:
             # Get user that sent /start and log his name
             user = update.message.from_user
             tfab_logger.info("\nTFAB: User %s started the conversation.\n", user.first_name)
@@ -147,12 +172,22 @@ class InputHandlers(object):
 לפניך התפריטים הבאים:"""
 
             await update.message.reply_text(start_text, reply_markup=reply_markup)
-        elif update.callback_query is not None:
-            start_text = """הפעולה בוצעה בהצלחה."""
-            await update.callback_query.edit_message_text(start_text)
+        if entry_method == EntryPointStates.END_OF_OPERATION:
+            operation_success_message = """הפעולה בוצעה בהצלחה."""
+            operation_failure_message = """הפעולה נכשלה."""
             menus_text = """לפניך התפריטים הבאים:"""
-            await context.bot.send_message(chat_id=update.effective_chat.id, text=menus_text, reply_markup=reply_markup)
+            final_text = ""
 
+            if context.user_data[UserDataIndices.CONTEXTUAL_LAST_OPERATION_STATUS]:
+                final_text = operation_success_message + "\n" + menus_text
+            else:
+                final_text = operation_failure_message + "\n" + menus_text
+
+            await context.bot.send_message(chat_id=update.effective_chat.id, text=final_text, reply_markup=reply_markup)
+        if entry_method == EntryPointStates.ILLEGAL:
+            await InputHandlers.illegal_situation_handler(update, context)
+
+        context.user_data.clear()
         return TFABApplication.GENERAL_MENU
 
     @staticmethod
@@ -162,6 +197,9 @@ class InputHandlers(object):
         """
         if context.user_data[UserDataIndices.CURRENT_STATE] == TFABApplication.PLAYERS_MENU_ADD:
             res = await AdminMenuHandlers.PlayersMenuHandlers.add_player_handler(update, context)
+            return res
+        elif context.user_data[UserDataIndices.CURRENT_STATE] == TFABApplication.PLAYERS_MENU_DELETE:
+            res = await AdminMenuHandlers.PlayersMenuHandlers.delete_player_handler(update, context)
             return res
         else:
             raise tfab_exception.TFABException("text input handler reached invalid state")
@@ -182,12 +220,12 @@ class InputHandlers(object):
     @staticmethod
     async def unknown_command_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(chat_id=update.effective_chat.id,
-                                       text="האופציה הזו לא קיימת, ניתן לחזור להתחלה עם /help")
+                                       text="האופציה לא קיימת. לחזרה לתפריט הראשי /help")
 
     @staticmethod
     async def unknown_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(chat_id=update.effective_chat.id,
-                                       text="האופציה הזו לא קיימת, ניתן לחזור להתחלה עם /help")
+                                       text="האופציה לא קיימת. לחזרה לתפריט הראשי /help")
 
     @staticmethod
     async def illegal_situation_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -307,7 +345,8 @@ class AdminMenuHandlers(object):
                     if not player_name or not characteristic:
                         return await InputHandlers.illegal_situation_handler(update, context)
                     TFABApplication.get_instance().db.insert_player(player_name, characteristic)
-                    user_data = dict()
+
+                    user_data[UserDataIndices.CONTEXTUAL_LAST_OPERATION_STATUS] = True
                     res = await InputHandlers.entrypoint_handler(update, context)
                     return res
                 else:
@@ -333,6 +372,49 @@ class AdminMenuHandlers(object):
                 raise tfab_exception.TFABException("Add player handler reached invalid state")
 
         @staticmethod
+        async def delete_player_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+            user_data = context.user_data
+            query = update.callback_query
+            message = update.message
+
+            # Used to differentiate between the following states:
+            # 1. The user got to this handler through the Players menu
+            # 2. The user entered the name of the player he wishes to delete
+
+            # Situation 1
+            if query is not None:
+                await query.answer()
+
+                if query.data == str(TFABApplication.PLAYERS_MENU_DELETE):
+                    # This means we got here through the players menu
+                    user_data[UserDataIndices.CURRENT_STATE] = TFABApplication.PLAYERS_MENU_DELETE
+
+                    text = """מה שם השחקן שתרצה למחוק?"""
+
+                    await query.edit_message_text(text)
+                    return TFABApplication.GOT_INPUT
+                else:
+                    return await InputHandlers.illegal_situation_handler(update, context)
+            # Situation 2
+            elif message is not None:
+                player_name = message.text
+                if not player_name:
+                    return await InputHandlers.illegal_situation_handler(update, context)
+
+                if TFABApplication.get_instance().db.delete_player(player_name):
+                    context.user_data[UserDataIndices.CONTEXTUAL_LAST_OPERATION_STATUS] = True
+                    res = await InputHandlers.entrypoint_handler(update, context)
+                    return res
+                else:
+                    await context.bot.send_message(chat_id=update.effective_chat.id, text="""לא קיים שחקן כזה, וודא שהשם כתוב נכון""")
+                    context.user_data[UserDataIndices.CONTEXTUAL_LAST_OPERATION_STATUS] = False
+                    res = await InputHandlers.entrypoint_handler(update, context)
+                    return res
+            else:
+                tfab_logger.log("Illegal state in bot.", logging.CRITICAL)
+                raise tfab_exception.TFABException("Add player handler reached invalid state")
+
+        @staticmethod
         async def show_players_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             query = update.callback_query
 
@@ -344,11 +426,14 @@ class AdminMenuHandlers(object):
             await query.answer()
 
             all_players_message = TFABApplication.get_instance().db.show_all_players()
-            await context.bot.send_message(chat_id=update.effective_chat.id, text=all_players_message)
+            context.user_data[UserDataIndices.CONTEXTUAL_LAST_OPERATION_STATUS] = True
 
+            await context.bot.send_message(chat_id=update.effective_chat.id, text=all_players_message)
             return await InputHandlers.entrypoint_handler(update, context)
 
 
 class UserDataIndices(object):
     CONTEXTUAL_ADDED_PLAYER = "AddedPlayer"
+    CONTEXTUAL_DELETED_PLAYER = "DeletedPlayer"
     CURRENT_STATE = "CurrentState"
+    CONTEXTUAL_LAST_OPERATION_STATUS = "CurrentStatus"

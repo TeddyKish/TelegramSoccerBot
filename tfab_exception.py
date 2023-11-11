@@ -3,3 +3,6 @@ class TFABException(Exception):
 
 class ConfigurationError(TFABException):
     pass
+
+class DatabaseError(TFABException):
+    pass
