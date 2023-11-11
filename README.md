@@ -22,7 +22,7 @@ Currently, expects to receive a YML configuration located at `./tfab_data/tfab_c
                - [ ] Show: -> Shows today's groups
        - [ ]  Players Menu
            - [X] Add Player: -> What's the player name? -> Characteristics -> Added successfully
-           - [ ] Edit Player: -> What's the player name? -> Player edit menu (currently- GK/Attacker/Defender)
+           - [X] Edit Player: -> What's the player name? -> Player edit menu (currently- GK/Attacker/Defender)
            - [X] Show players -> Shows all players and their characteristics.
            - [X] Delete Player -> What's the player name? -> Succesfully deleted X.
 

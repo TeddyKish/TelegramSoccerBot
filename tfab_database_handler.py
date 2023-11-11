@@ -56,6 +56,40 @@ class TFABDBHandler(object):
             return roster_message
         return roster_message[:-1] # Removes the last \n in the string
 
+    def edit_player(self, player_name, new_characteristic):
+        """
+        Edits the player's characteristic.
+        :param player_name: The player that we wish to edit.
+        :param new_characteristic: The new characteristic of the player.
+        :return: True if the player was found and the characteristic has been set, False otherwise.
+        """
+        players_collection = self.__get_collection(TFABDBHandler.PLAYERS_COLLECTION_NAME)
+        filter_object = {self.PLAYER_NAME_KEY: player_name}
+        update_operation = {'$set': {self.PLAYER_CHARACTERISTICS_KEY: new_characteristic}}
+
+        try:
+            results = players_collection.update_one(filter_object, update_operation)
+        except Exception as e:
+            raise tfab_exception.DatabaseError("TFAB Database Error occured: " + str(e))
+
+        # Not checking modified_count, to allow an admin to click on the same characteristic without triggering errors
+        return results.matched_count == 1
+
+    def check_player_existence(self, player_name):
+        """
+        Checks whether a player exists in the database.
+        :param player_name: The player name to search
+        :return: True if the player exists in the Players collection, False otherwise
+        """
+        players_collection = self.__get_collection(TFABDBHandler.PLAYERS_COLLECTION_NAME)
+        filter_object = {self.PLAYER_NAME_KEY: player_name}
+        try:
+            result = players_collection.find_one(filter_object)
+        except Exception as e:
+            raise tfab_exception.DatabaseError("TFAB Database Error occured: " + str(e))
+
+        return result is not None
+
     def delete_player(self, player_name):
         """
         Deletes a single player.

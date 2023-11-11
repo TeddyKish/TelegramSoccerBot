@@ -93,10 +93,11 @@ class TFABApplication(object):
                     CallbackQueryHandler(InputHandlers.pass_handler, pattern=str(TFABApplication.GAMES_MENU_GROUPS_SHOW)),
                 ],
                 TFABApplication.ADMIN_MENU_PLAYERS: [
-                    CallbackQueryHandler(AdminMenuHandlers.PlayersMenuHandlers.add_player_handler, pattern=str(TFABApplication.PLAYERS_MENU_ADD) + "|" + "|".join(list(tfab_consts.PlayerCharacteristics.values()))),
+                    CallbackQueryHandler(AdminMenuHandlers.PlayersMenuHandlers.add_player_handler, pattern=str(TFABApplication.PLAYERS_MENU_ADD)),
                     CallbackQueryHandler(AdminMenuHandlers.PlayersMenuHandlers.show_players_handler, pattern=str(TFABApplication.PLAYERS_MENU_SHOW)),
-                    CallbackQueryHandler(InputHandlers.pass_handler, pattern=str(TFABApplication.PLAYERS_MENU_EDIT)),
+                    CallbackQueryHandler(AdminMenuHandlers.PlayersMenuHandlers.edit_player_handler, pattern=str(TFABApplication.PLAYERS_MENU_EDIT)),
                     CallbackQueryHandler(AdminMenuHandlers.PlayersMenuHandlers.delete_player_handler, pattern=str(TFABApplication.PLAYERS_MENU_DELETE)),
+                    CallbackQueryHandler(AdminMenuHandlers.PlayersMenuHandlers.characteristics_handler, pattern=str("|".join(list(tfab_consts.PlayerCharacteristics.values()))))
                 ],
                 TFABApplication.GOT_INPUT: [
                     MessageHandler(filters.TEXT & ~filters.COMMAND, InputHandlers.text_input_handler)
@@ -196,11 +197,11 @@ class InputHandlers(object):
         This one is basically a router between functions that need input.
         """
         if context.user_data[UserDataIndices.CURRENT_STATE] == TFABApplication.PLAYERS_MENU_ADD:
-            res = await AdminMenuHandlers.PlayersMenuHandlers.add_player_handler(update, context)
-            return res
+            return await AdminMenuHandlers.PlayersMenuHandlers.add_player_handler(update, context)
         elif context.user_data[UserDataIndices.CURRENT_STATE] == TFABApplication.PLAYERS_MENU_DELETE:
-            res = await AdminMenuHandlers.PlayersMenuHandlers.delete_player_handler(update, context)
-            return res
+            return await AdminMenuHandlers.PlayersMenuHandlers.delete_player_handler(update, context)
+        elif context.user_data[UserDataIndices.CURRENT_STATE] == TFABApplication.PLAYERS_MENU_EDIT:
+            return await AdminMenuHandlers.PlayersMenuHandlers.edit_player_handler(update, context)
         else:
             raise tfab_exception.TFABException("text input handler reached invalid state")
 
@@ -347,8 +348,7 @@ class AdminMenuHandlers(object):
                     TFABApplication.get_instance().db.insert_player(player_name, characteristic)
 
                     user_data[UserDataIndices.CONTEXTUAL_LAST_OPERATION_STATUS] = True
-                    res = await InputHandlers.entrypoint_handler(update, context)
-                    return res
+                    return await InputHandlers.entrypoint_handler(update, context)
                 else:
                     return await InputHandlers.illegal_situation_handler(update, context)
             elif message is not None:
@@ -367,6 +367,80 @@ class AdminMenuHandlers(object):
                 await message.reply_text(text, reply_markup=reply_markup)
                 return TFABApplication.ADMIN_MENU_PLAYERS
 
+            else:
+                tfab_logger.log("Illegal state in bot.", logging.CRITICAL)
+                raise tfab_exception.TFABException("Add player handler reached invalid state")
+
+        @staticmethod
+        async def edit_player_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+            user_data = context.user_data
+            query = update.callback_query
+            message = update.message
+
+            # Used to differentiate between the following states:
+            # 1. The user got to this handler through the Players menu
+            # 2. The user entered the name of the player he wishes to edit
+            # 3. The user entered the new player characteristic
+
+            # Situation 1
+            if query is not None:
+                await query.answer()
+
+                if query.data == str(TFABApplication.PLAYERS_MENU_EDIT):
+                    # This means we got here through the players menu
+                    user_data[UserDataIndices.CURRENT_STATE] = TFABApplication.PLAYERS_MENU_EDIT
+
+                    text = """מה שם השחקן שתרצה לערוך?"""
+
+                    await query.edit_message_text(text)
+                    return TFABApplication.GOT_INPUT
+
+                # Situation 3 - Check if it was a characteristic
+                elif query.data in list(tfab_consts.PlayerCharacteristics.values()):
+                    player_name = user_data[UserDataIndices.CONTEXTUAL_EDITED_PLAYER]
+                    characteristic = None
+                    if query.data in [tfab_consts.PlayerCharacteristics["GOALKEEPER"],
+                                      tfab_consts.PlayerCharacteristics["DEFENSIVE"],
+                                      tfab_consts.PlayerCharacteristics["OFFENSIVE"],
+                                      tfab_consts.PlayerCharacteristics["ALLAROUND"]]:
+                        characteristic = query.data
+
+                    if not player_name or not characteristic:
+                        return await InputHandlers.illegal_situation_handler(update, context)
+
+                    if TFABApplication.get_instance().db.edit_player(player_name, characteristic):
+                        user_data[UserDataIndices.CONTEXTUAL_LAST_OPERATION_STATUS] = True
+                        return await InputHandlers.entrypoint_handler(update, context)
+                    else:
+                        await context.bot.send_message(chat_id=update.effective_chat.id,
+                                                       text="""קרתה שגיאה בפעולת עריכת השחקן""")
+                        context.user_data[UserDataIndices.CONTEXTUAL_LAST_OPERATION_STATUS] = False
+                        return await InputHandlers.entrypoint_handler(update, context)
+                else:
+                    user_data[UserDataIndices.CONTEXTUAL_LAST_OPERATION_STATUS] = False
+                    return await InputHandlers.illegal_situation_handler(update, context)
+            elif message is not None:
+                # Situation 2
+                user_data[UserDataIndices.CONTEXTUAL_EDITED_PLAYER] = message.text
+
+                if not TFABApplication.get_instance().db.check_player_existence(message.text):
+                    await context.bot.send_message(chat_id=update.effective_chat.id,
+                                                   text="""לא קיים שחקן כזה, וודא שהשם כתוב נכון""")
+                    context.user_data[UserDataIndices.CONTEXTUAL_LAST_OPERATION_STATUS] = False
+                    return await InputHandlers.entrypoint_handler(update, context)
+
+                text = """בחר את הסוג המעודכן עבור השחקן:"""
+                keyboard = [
+                    [InlineKeyboardButton("מתאים לכל המגרש",
+                                          callback_data=str(tfab_consts.PlayerCharacteristics["ALLAROUND"]))],
+                    [InlineKeyboardButton("שוער", callback_data=str(tfab_consts.PlayerCharacteristics["GOALKEEPER"])),
+                     InlineKeyboardButton("התקפה", callback_data=str(tfab_consts.PlayerCharacteristics["OFFENSIVE"])),
+                     InlineKeyboardButton("הגנה", callback_data=str(tfab_consts.PlayerCharacteristics["DEFENSIVE"]))]
+                ]
+
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                await message.reply_text(text, reply_markup=reply_markup)
+                return TFABApplication.ADMIN_MENU_PLAYERS
             else:
                 tfab_logger.log("Illegal state in bot.", logging.CRITICAL)
                 raise tfab_exception.TFABException("Add player handler reached invalid state")
@@ -403,13 +477,11 @@ class AdminMenuHandlers(object):
 
                 if TFABApplication.get_instance().db.delete_player(player_name):
                     context.user_data[UserDataIndices.CONTEXTUAL_LAST_OPERATION_STATUS] = True
-                    res = await InputHandlers.entrypoint_handler(update, context)
-                    return res
+                    return await InputHandlers.entrypoint_handler(update, context)
                 else:
                     await context.bot.send_message(chat_id=update.effective_chat.id, text="""לא קיים שחקן כזה, וודא שהשם כתוב נכון""")
                     context.user_data[UserDataIndices.CONTEXTUAL_LAST_OPERATION_STATUS] = False
-                    res = await InputHandlers.entrypoint_handler(update, context)
-                    return res
+                    return await InputHandlers.entrypoint_handler(update, context)
             else:
                 tfab_logger.log("Illegal state in bot.", logging.CRITICAL)
                 raise tfab_exception.TFABException("Add player handler reached invalid state")
@@ -431,9 +503,21 @@ class AdminMenuHandlers(object):
             await context.bot.send_message(chat_id=update.effective_chat.id, text=all_players_message)
             return await InputHandlers.entrypoint_handler(update, context)
 
+        @staticmethod
+        async def characteristics_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+            if UserDataIndices.CURRENT_STATE in context.user_data:
+                state = context.user_data[UserDataIndices.CURRENT_STATE]
+                if state == TFABApplication.PLAYERS_MENU_ADD:
+                    return await AdminMenuHandlers.PlayersMenuHandlers.add_player_handler(update, context)
+                elif state == TFABApplication.PLAYERS_MENU_EDIT:
+                    return await AdminMenuHandlers.PlayersMenuHandlers.edit_player_handler(update, context)
+
+            return await InputHandlers.illegal_situation_handler(update, context)
+
 
 class UserDataIndices(object):
     CONTEXTUAL_ADDED_PLAYER = "AddedPlayer"
     CONTEXTUAL_DELETED_PLAYER = "DeletedPlayer"
+    CONTEXTUAL_EDITED_PLAYER = "EditedPlayer"
     CURRENT_STATE = "CurrentState"
     CONTEXTUAL_LAST_OPERATION_STATUS = "CurrentStatus"
