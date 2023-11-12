@@ -4,31 +4,70 @@ from tfab_exception import TFABException
 from tfab_logger import tfab_logger
 from pymongo import MongoClient
 
+
 class TFABDBHandler(object):
     """
     Should be an interface for other DB handlers if one wishes to replace, currently works with MongoDB
     """
     PLAYER_NAME_KEY = "PlayerName"
     PLAYER_CHARACTERISTICS_KEY = "PlayerPosition"
+
+    USER_ID_KEY = "UserId"
+    USER_FULLNAME_KEY = "UserFullName"
+
     PLAYERS_COLLECTION_NAME = "Players"
+    RANKERS_COLLECTION_NAME = "AuthorizedRankers"
+    ADMINS_COLLECTION_NAME = "AuthorizedAdmins"
 
     def __init__(self, db_name, db_port):
         self.db_name = db_name
         self.mongo_client = MongoClient("mongodb://localhost:{0}/".format(db_port))
         self.db = self.mongo_client[db_name]
+
         if self.mongo_client is None or self.db is None:
             raise TFABException("Error initializing MongoDB")
+
+        collection_names = self.db.list_collection_names()
+        for cname in [self.PLAYERS_COLLECTION_NAME, self.ADMINS_COLLECTION_NAME, self.RANKERS_COLLECTION_NAME]:
+            if cname not in collection_names:
+                self.db.create_collection(cname)
 
     def insert_player(self, player_name, characteristics):
         """
         Inserts a single player and their characteristics
         """
         new_player = \
-            {TFABDBHandler.PLAYER_NAME_KEY: player_name, TFABDBHandler.PLAYER_CHARACTERISTICS_KEY: characteristics}
-        players_collection = self.__get_collection(TFABDBHandler.PLAYERS_COLLECTION_NAME)
+            {self.PLAYER_NAME_KEY: player_name, self.PLAYER_CHARACTERISTICS_KEY: characteristics}
+        players_collection = self.__get_collection(self.PLAYERS_COLLECTION_NAME)
 
         try:
             players_collection.insert_one(new_player)
+        except Exception as e:
+            raise tfab_exception.DatabaseError("TFAB Database Error occured: " + str(e))
+
+    def insert_admin(self, admin_name, admin_id):
+        """
+        Inserts <admin_name, admin_id> to the admins' collection.
+        """
+        new_admin = \
+            {self.USER_ID_KEY: admin_id, self.USER_FULLNAME_KEY: admin_name}
+        admins_collection = self.__get_collection(self.ADMINS_COLLECTION_NAME)
+
+        try:
+            admins_collection.insert_one(new_admin)
+        except Exception as e:
+            raise tfab_exception.DatabaseError("TFAB Database Error occured: " + str(e))
+
+    def insert_ranker(self, ranker_name, ranker_id):
+        """
+        Inserts <ranker_name, ranker_id> to the rankers collection.
+        """
+        new_ranker = \
+            {self.USER_ID_KEY: ranker_id, self.USER_FULLNAME_KEY: ranker_name}
+        rankers_collection = self.__get_collection(self.RANKERS_COLLECTION_NAME)
+
+        try:
+            rankers_collection.insert_one(new_ranker)
         except Exception as e:
             raise tfab_exception.DatabaseError("TFAB Database Error occured: " + str(e))
 
@@ -36,7 +75,7 @@ class TFABDBHandler(object):
         """
         :return: A string that contains information about all the available players in the DB.
         """
-        players_collection = self.__get_collection(TFABDBHandler.PLAYERS_COLLECTION_NAME)
+        players_collection = self.__get_collection(self.PLAYERS_COLLECTION_NAME)
 
         try:
             all_players = players_collection.find()
@@ -47,14 +86,14 @@ class TFABDBHandler(object):
         roster_message = ""
         for player in all_players:
             roster_message += "{0}.{1} ({2})\n".format(
-                                   i,
-                                   player[TFABDBHandler.PLAYER_NAME_KEY],
-                                   tfab_consts.PlayerPositionToHebrew[player[TFABDBHandler.PLAYER_CHARACTERISTICS_KEY]])
+                i,
+                player[self.PLAYER_NAME_KEY],
+                tfab_consts.PlayerPositionToHebrew[player[self.PLAYER_CHARACTERISTICS_KEY]])
             i = i + 1
 
         if roster_message == "":
             return roster_message
-        return roster_message[:-1] # Removes the last \n in the string
+        return roster_message[:-1]  # Removes the last \n in the string
 
     def edit_player(self, player_name, new_characteristic):
         """
@@ -63,7 +102,7 @@ class TFABDBHandler(object):
         :param new_characteristic: The new characteristic of the player.
         :return: True if the player was found and the characteristic has been set, False otherwise.
         """
-        players_collection = self.__get_collection(TFABDBHandler.PLAYERS_COLLECTION_NAME)
+        players_collection = self.__get_collection(self.PLAYERS_COLLECTION_NAME)
         filter_object = {self.PLAYER_NAME_KEY: player_name}
         update_operation = {'$set': {self.PLAYER_CHARACTERISTICS_KEY: new_characteristic}}
 
@@ -81,10 +120,36 @@ class TFABDBHandler(object):
         :param player_name: The player name to search
         :return: True if the player exists in the Players collection, False otherwise
         """
-        players_collection = self.__get_collection(TFABDBHandler.PLAYERS_COLLECTION_NAME)
+        players_collection = self.__get_collection(self.PLAYERS_COLLECTION_NAME)
         filter_object = {self.PLAYER_NAME_KEY: player_name}
         try:
             result = players_collection.find_one(filter_object)
+        except Exception as e:
+            raise tfab_exception.DatabaseError("TFAB Database Error occured: " + str(e))
+
+        return result is not None
+
+    def check_admin_existence(self, admin_id):
+        """
+        :return: True if <admin_id> exists in the Admins collection, False otherwise
+        """
+        admins_collection = self.__get_collection(self.ADMINS_COLLECTION_NAME)
+        filter_object = {self.USER_ID_KEY: admin_id}
+        try:
+            result = admins_collection.find_one(filter_object)
+        except Exception as e:
+            raise tfab_exception.DatabaseError("TFAB Database Error occured: " + str(e))
+
+        return result is not None
+
+    def check_ranker_existence(self, ranker_id):
+        """
+        :return: True if <admin_id> exists in the Admins collection, False otherwise
+        """
+        rankers_collection = self.__get_collection(self.RANKERS_COLLECTION_NAME)
+        filter_object = {self.USER_ID_KEY: ranker_id}
+        try:
+            result = rankers_collection.find_one(filter_object)
         except Exception as e:
             raise tfab_exception.DatabaseError("TFAB Database Error occured: " + str(e))
 
@@ -96,7 +161,7 @@ class TFABDBHandler(object):
         :param player_name: The player name that we wish to delete.
         :return: True if a player was deleted, false otherwise
         """
-        players_collection = self.__get_collection(TFABDBHandler.PLAYERS_COLLECTION_NAME)
+        players_collection = self.__get_collection(self.PLAYERS_COLLECTION_NAME)
         filter_object = {self.PLAYER_NAME_KEY: player_name}
 
         # TODO: Make sure the player is deleted from all rankings as well

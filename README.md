@@ -7,11 +7,11 @@ Currently, expects to receive a YML configuration located at `./tfab_data/tfab_c
 #### Implemented options are prefixed with a checkmark.
 - [ ] /help | /start -> Explain about the different options
   - [ ] Rankers Menu
-    - [ ] Login: -> (If not logged in) What's the secret password? -> Thanks! Use /help to proceed.
+    - [X] Login: -> (If not logged in) What's the secret password? -> Thanks! Use /help to proceed.
       - [ ] Rank: -> Who do you want to rank? -> Rank that player
       - [ ] My Ranking: -> Prints a message with all ranked players, and a list of all unranked players
 - [ ] Administrators Menu
-     - [ ] Login: -> (If not logged in) What's the secret password? -> Thanks! Use /help to proceed.
+     - [X] Login: -> (If not logged in) What's the secret password? -> Thanks! Use /help to proceed.
        - [ ]  Games Menu
            - [ ]  Roster Menu
                - [ ] Today's Roster: -> Please send today's message -> Successfully loaded today's list
@@ -20,7 +20,7 @@ Currently, expects to receive a YML configuration located at `./tfab_data/tfab_c
            - [ ]  Groups Menu
                - [ ] Generate: -> Generates today's groups, with the sum of each group at the end
                - [ ] Show: -> Shows today's groups
-       - [ ]  Players Menu
+       - [X]  Players Menu
            - [X] Add Player: -> What's the player name? -> Characteristics -> Added successfully
            - [X] Edit Player: -> What's the player name? -> Player edit menu (currently- GK/Attacker/Defender)
            - [X] Show players -> Shows all players and their characteristics.

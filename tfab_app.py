@@ -15,6 +15,8 @@ class TFABApplication(object):
     _instance = None
 
     # The hierarchy of menus within this application
+    ADMIN_LOGIN, \
+    RANKERS_LOGIN, \
     GOT_INPUT,  \
     GENERAL_MENU, \
         RANKER_MENU, \
@@ -34,7 +36,7 @@ class TFABApplication(object):
                 PLAYERS_MENU_ADD, \
                 PLAYERS_MENU_SHOW, \
                 PLAYERS_MENU_EDIT, \
-                PLAYERS_MENU_DELETE = range(20)
+                PLAYERS_MENU_DELETE = range(22)
 
     @staticmethod
     def get_instance(tfab_config=None, tfab_db=None):
@@ -125,7 +127,6 @@ class InputHandlers(object):
     Contains the different input handlers for this bot.
     """
 
-
     @staticmethod
     async def entrypoint_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Send message on `/start` or `/help`."""
@@ -202,8 +203,65 @@ class InputHandlers(object):
             return await AdminMenuHandlers.PlayersMenuHandlers.delete_player_handler(update, context)
         elif context.user_data[UserDataIndices.CURRENT_STATE] == TFABApplication.PLAYERS_MENU_EDIT:
             return await AdminMenuHandlers.PlayersMenuHandlers.edit_player_handler(update, context)
+        elif context.user_data[UserDataIndices.CURRENT_STATE] == TFABApplication.ADMIN_LOGIN:
+            return await InputHandlers.admin_login_handler(update, context)
+        elif context.user_data[UserDataIndices.CURRENT_STATE] == TFABApplication.RANKERS_LOGIN:
+            return await InputHandlers.ranker_login_handler(update, context)
         else:
             raise tfab_exception.TFABException("text input handler reached invalid state")
+
+    @staticmethod
+    async def admin_login_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """
+        Responsible for validating admin requests.
+        """
+        if UserDataIndices.CURRENT_STATE in context.user_data and \
+            context.user_data[UserDataIndices.CURRENT_STATE] == TFABApplication.ADMIN_LOGIN:
+                if update.message:
+                    if update.message.text:
+                        if update.message.text == \
+                            TFABApplication.get_instance().configuration.BOTITO_SECRET_ADMINS_PASSWORD:
+                            TFABApplication.get_instance().db.insert_admin\
+                    (update.effective_user.first_name + " "+ update.effective_user.last_name, update.effective_user.id)
+                            context.user_data[UserDataIndices.CONTEXTUAL_LAST_OPERATION_STATUS] = True
+                            return await InputHandlers.entrypoint_handler(update, context)
+                # If this is not just a regular text message, fail
+                await context.bot.send_message(chat_id=update.effective_chat.id,
+                                               text="הסיסמא שגויה.")
+                context.user_data[UserDataIndices.CONTEXTUAL_LAST_OPERATION_STATUS] = False
+                return await InputHandlers.entrypoint_handler(update, context)
+        else:
+            context.user_data[UserDataIndices.CURRENT_STATE] = TFABApplication.ADMIN_LOGIN
+            await context.bot.send_message(chat_id=update.effective_chat.id,
+                                           text="אנא הקלד את סיסמת המנהלים")
+            return TFABApplication.GOT_INPUT
+
+    @staticmethod
+    async def ranker_login_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """
+        Responsible for validating ranker requests.
+        """
+        if UserDataIndices.CURRENT_STATE in context.user_data and \
+                context.user_data[UserDataIndices.CURRENT_STATE] == TFABApplication.RANKERS_LOGIN:
+            if update.message:
+                if update.message.text:
+                    if update.message.text == \
+                            TFABApplication.get_instance().configuration.BOTITO_SECRET_RANKERS_PASSWORD:
+                        TFABApplication.get_instance().db.insert_ranker \
+                            (update.effective_user.first_name + " " + update.effective_user.last_name,
+                             update.effective_user.id)
+                        context.user_data[UserDataIndices.CONTEXTUAL_LAST_OPERATION_STATUS] = True
+                        return await InputHandlers.entrypoint_handler(update, context)
+            # If this is not just a regular text message, fail
+            await context.bot.send_message(chat_id=update.effective_chat.id,
+                                           text="הסיסמא שגויה.")
+            context.user_data[UserDataIndices.CONTEXTUAL_LAST_OPERATION_STATUS] = False
+            return await InputHandlers.entrypoint_handler(update, context)
+        else:
+            context.user_data[UserDataIndices.CURRENT_STATE] = TFABApplication.RANKERS_LOGIN
+            await context.bot.send_message(chat_id=update.effective_chat.id,
+                                           text="אנא הקלד את סיסמת המדרגים")
+            return TFABApplication.GOT_INPUT
 
     @staticmethod
     async def pass_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -246,6 +304,10 @@ class RankersMenuHandlers(object):
         query = update.callback_query
         await query.answer()
 
+        # First check if the user is logged in as a ranker.
+        if not TFABApplication.get_instance().db.check_ranker_existence(update.effective_user.id):
+            return await InputHandlers.ranker_login_handler(update, context)
+
         text = """להלן פעולות הדירוגים האפשריות:"""
 
         keyboard = [
@@ -271,6 +333,11 @@ class AdminMenuHandlers(object):
         """
         query = update.callback_query
         await query.answer()
+
+        # First check if the user is logged in as admin.
+        if not TFABApplication.get_instance().db.check_admin_existence(update.effective_user.id):
+            return await InputHandlers.admin_login_handler(update, context)
+
 
         text = """להלן פעולות המנהלים האפשריות:"""
 
