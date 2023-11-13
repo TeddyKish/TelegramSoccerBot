@@ -8,7 +8,9 @@ Currently, expects to receive a YML configuration located at `./tfab_data/tfab_c
 - [ ] /help | /start -> Explain about the different options
   - [ ] Rankers Menu
     - [X] Login: -> (If not logged in) What's the secret password? -> Thanks! Use /help to proceed.
-      - [ ] Rank: -> Who do you want to rank? -> Rank that player
+        - [ ] Rank Specific Player: -> Who do you want to rank? -> Rank that player
+        - [ ] Rank All New Players -> *Gets a template message of all unranked players* Please rank them -> Success!
+        - [ ] Re-rank everyone: -> *Gets a template message* Please fill this message and send it -> Success!
       - [ ] My Ranking: -> Prints a message with all ranked players, and a list of all unranked players
 - [ ] Administrators Menu
      - [X] Login: -> (If not logged in) What's the secret password? -> Thanks! Use /help to proceed.
