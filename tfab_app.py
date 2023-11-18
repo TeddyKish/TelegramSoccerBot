@@ -2,7 +2,10 @@ import logging
 import tfab_exception
 import tfab_consts
 from enum import IntEnum
+
+import tfab_message_parser
 from tfab_logger import tfab_logger
+from tfab_message_parser import RankingsMessageParser
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, Bot
 from telegram.ext import filters, MessageHandler, ApplicationBuilder, ContextTypes, CommandHandler, CallbackQueryHandler
 from telegram.ext import ConversationHandler
@@ -74,7 +77,7 @@ class TFABApplication(object):
                 # TODO: add here -> state for "go back", that holds all of the different functions
                 TFABApplication.RANKER_MENU: [
                     CallbackQueryHandler(InputHandlers.pass_handler, pattern=str(TFABApplication.RANKER_MENU_RANK_SPECIFIC_PLAYER)),
-                    CallbackQueryHandler(InputHandlers.pass_handler, pattern=str(TFABApplication.RANKER_MENU_RANK_EVERYONE)),
+                    CallbackQueryHandler(RankersMenuHandlers.rank_everyone_handler, pattern=str(TFABApplication.RANKER_MENU_RANK_EVERYONE)),
                     CallbackQueryHandler(InputHandlers.pass_handler, pattern=str(TFABApplication.RANKER_MENU_SHOW_MY_RANKINGS)),
                 ],
                 TFABApplication.ADMIN_MENU: [
@@ -121,6 +124,25 @@ class TFABApplication(object):
         """
         self.__ptb_app.run_polling()
 
+class HandlerUtils(object):
+    """
+    Contains utilities for the different handlers.
+    """
+    class UpdateType:
+        CALLBACK_QUERY = 0,
+        TEXTUAL_MESSAGE = 1,
+        OTHER = 2
+
+
+    @staticmethod
+    def get_update_type(update):
+        if update.message and update.message.text and update.message.text != "":
+            return HandlerUtils.UpdateType.TEXTUAL_MESSAGE
+        elif update.message is None and update.callback_query is not None:
+            return HandlerUtils.UpdateType.CALLBACK_QUERY
+
+        return HandlerUtils.UpdateType.OTHER
+
 
 class InputHandlers(object):
     """
@@ -141,14 +163,12 @@ class InputHandlers(object):
             :param update: The update received.
             :return: The method by which this function was called.
             """
-            if update.message is not None and (update.message.text == "/start" or update.message.text == "/help"):
-                # User started the interaction
-                return EntryPointStates.START
-            if (update.message is None and update.callback_query is not None) or \
-               (update.message is not None and update.callback_query is None):
-                # Got here through an operation whose last interaction was either :
-                # 1. A callback query
-                # 2. A message
+            update_type = HandlerUtils.get_update_type(update)
+            if update_type == HandlerUtils.UpdateType.TEXTUAL_MESSAGE:
+                if update.message.text == "/start" or update.message.text == "/help":
+                    return EntryPointStates.START
+
+            if update_type != HandlerUtils.UpdateType.OTHER:
                 return EntryPointStates.END_OF_OPERATION
 
             # Bugs
@@ -207,6 +227,8 @@ class InputHandlers(object):
             return await InputHandlers.admin_login_handler(update, context)
         elif context.user_data[UserDataIndices.CURRENT_STATE] == TFABApplication.RANKERS_LOGIN:
             return await InputHandlers.ranker_login_handler(update, context)
+        elif context.user_data[UserDataIndices.CURRENT_STATE] == TFABApplication.RANKER_MENU_RANK_EVERYONE:
+            return await RankersMenuHandlers.rank_everyone_handler(update, context)
         else:
             raise tfab_exception.TFABException("text input handler reached invalid state")
 
@@ -319,6 +341,54 @@ class RankersMenuHandlers(object):
         reply_markup = InlineKeyboardMarkup(keyboard)
         await query.edit_message_text(text, reply_markup=reply_markup)
         return TFABApplication.RANKER_MENU
+
+    @staticmethod
+    async def rank_everyone_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """
+        Handles the "rank everyone" option.
+        """
+        update_type = HandlerUtils.get_update_type(update)
+
+        if update_type == HandlerUtils.UpdateType.OTHER:
+            await InputHandlers.illegal_situation_handler(update, context)
+            return TFABApplication.GENERAL_MENU
+        elif update_type == HandlerUtils.UpdateType.CALLBACK_QUERY:
+            await update.callback_query.answer()
+
+            # Get ranking data to create message
+            player_names = [name for name, _ in TFABApplication.get_instance().db.get_player_list()]
+            user_rankings = TFABApplication.get_instance().db.get_user_rankings(update.effective_user.id)
+            if user_rankings is None:
+                raise tfab_exception.TFABException("Logged-in user doesn't have rankings!")
+
+            rankings_template = tfab_message_parser.RankingsMessageParser.generate_rankings_template(
+                player_names, user_rankings)
+
+            await context.bot.send_message(chat_id=update.effective_chat.id, text=rankings_template)
+            await context.bot.send_message(chat_id=update.effective_chat.id,
+                                           text="""שלחתי לך תבנית לדירוגים, תמלא אותה ושלח לי""")
+            context.user_data[UserDataIndices.CURRENT_STATE] = TFABApplication.RANKER_MENU_RANK_EVERYONE
+            return TFABApplication.GOT_INPUT
+        elif update_type == HandlerUtils.UpdateType.TEXTUAL_MESSAGE:
+            # Do stuff after you got the user's ranking message
+            rankings_message = update.message.text
+            rankings_dict = tfab_message_parser.RankingsMessageParser.parse_rankings_message(rankings_message)
+            found, modified = TFABApplication.get_instance().db.modify_user_rankings(update.effective_user.id, rankings_dict)
+
+            if modified:
+                success_message = "להלן פעולות הדירוג שבוצעו בהצלחה:\n"
+                for name, ranking in rankings_dict.items():
+                    success_message += "{0} = {1}\n".format(name, ranking)
+
+                await context.bot.send_message(chat_id=update.effective_chat.id, text=success_message)
+            elif found:
+                await context.bot.send_message(chat_id=update.effective_chat.id, text="לא בוצעו שינויים, הזנת דירוגים שגויים או זהים לקודמים")
+            else:
+                await context.bot.send_message(chat_id=update.effective_chat.id, text="פעולת הדירוג נכשלה, האם ההודעה שלך תקינה?")
+            context.user_data[UserDataIndices.CONTEXTUAL_LAST_OPERATION_STATUS] = found
+            return await InputHandlers.entrypoint_handler(update, context)
+
+        return await InputHandlers.illegal_situation_handler(update, context)
 
 
 class AdminMenuHandlers(object):
@@ -555,6 +625,21 @@ class AdminMenuHandlers(object):
 
         @staticmethod
         async def show_players_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+            def stringify_player_list(player_list):
+                """
+                Returns a formatted string that nicely displays the player list.
+                """
+                i = 1
+                all_players_message = ""
+                for player_name, characteristic in all_players_list:
+                    all_players_message += "{0}.{1} ({2})\n".format(i, player_name, characteristic)
+                    i = i + 1
+
+                if all_players_message != "":
+                    all_players_message = all_players_message[:-1]  # Removes the last \n in the string
+
+                return all_players_message
+
             query = update.callback_query
 
             # Situation 1
@@ -564,7 +649,8 @@ class AdminMenuHandlers(object):
 
             await query.answer()
 
-            all_players_message = TFABApplication.get_instance().db.show_all_players()
+            all_players_list = TFABApplication.get_instance().db.get_player_list()
+            all_players_message = stringify_player_list(all_players_list)
             context.user_data[UserDataIndices.CONTEXTUAL_LAST_OPERATION_STATUS] = True
 
             await context.bot.send_message(chat_id=update.effective_chat.id, text=all_players_message)

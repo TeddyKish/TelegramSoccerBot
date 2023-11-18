@@ -14,6 +14,7 @@ class TFABDBHandler(object):
 
     USER_ID_KEY = "UserId"
     USER_FULLNAME_KEY = "UserFullName"
+    USER_RANKINGS_KEY = "UserRankings"
 
     PLAYERS_COLLECTION_NAME = "Players"
     RANKERS_COLLECTION_NAME = "AuthorizedRankers"
@@ -63,7 +64,7 @@ class TFABDBHandler(object):
         Inserts <ranker_name, ranker_id> to the rankers collection.
         """
         new_ranker = \
-            {self.USER_ID_KEY: ranker_id, self.USER_FULLNAME_KEY: ranker_name}
+            {self.USER_ID_KEY: ranker_id, self.USER_FULLNAME_KEY: ranker_name, self.USER_RANKINGS_KEY: {}}
         rankers_collection = self.__get_collection(self.RANKERS_COLLECTION_NAME)
 
         try:
@@ -71,29 +72,66 @@ class TFABDBHandler(object):
         except Exception as e:
             raise tfab_exception.DatabaseError("TFAB Database Error occured: " + str(e))
 
-    def show_all_players(self):
+    def get_player_list(self):
         """
-        :return: A string that contains information about all the available players in the DB.
+        :return: A cursor that contains information about all the available players in the DB.
         """
         players_collection = self.__get_collection(self.PLAYERS_COLLECTION_NAME)
 
         try:
-            all_players = players_collection.find()
+            all_players_cursor = players_collection.find()
         except Exception as e:
             raise tfab_exception.DatabaseError("TFAB Database Error occured: " + str(e))
 
-        i = 1
-        roster_message = ""
-        for player in all_players:
-            roster_message += "{0}.{1} ({2})\n".format(
-                i,
-                player[self.PLAYER_NAME_KEY],
-                tfab_consts.PlayerPositionToHebrew[player[self.PLAYER_CHARACTERISTICS_KEY]])
-            i = i + 1
+        player_list = []
+        for player in all_players_cursor:
+            player_list.append((player[self.PLAYER_NAME_KEY],
+                                tfab_consts.PlayerPositionToHebrew[player[self.PLAYER_CHARACTERISTICS_KEY]]))
+        return player_list
 
-        if roster_message == "":
-            return roster_message
-        return roster_message[:-1]  # Removes the last \n in the string
+    def get_user_rankings(self, user_id):
+        """
+        :param user_id: The ID of the requested user.
+        :return: The user's rankings field as saved in the DB.
+        """
+        rankers_collection = self.__get_collection(self.RANKERS_COLLECTION_NAME)
+        filter_object = {self.USER_ID_KEY: user_id}
+
+        try:
+            result = rankers_collection.find_one(filter_object)
+        except Exception as e:
+            raise tfab_exception.DatabaseError("TFAB Database Error occured: " + str(e))
+
+        # If no such user exists
+        if result is None:
+            return None
+
+        return result[self.USER_RANKINGS_KEY]
+
+    def modify_user_rankings(self, user_id, rankings_dictionary):
+        """
+        :param user_id: The ID of the user.
+        :param rankings_dictionary: A dictionary containing all the desired modifications to perform.
+        * note - removes illegal rankings from the rankings dictionary.
+        :return: True if succeeded, false otherwise.
+        """
+        rankers_collection = self.__get_collection(self.RANKERS_COLLECTION_NAME)
+        filter_object = {self.USER_ID_KEY: user_id}
+        update_object = {}
+
+        for player_name, ranking in rankings_dictionary.items():
+            if self.check_player_existence(player_name):
+                update_object["{0}.{1}".format(self.USER_RANKINGS_KEY, player_name)] = ranking
+            else:
+                rankings_dictionary.pop(player_name)
+
+        try:
+            result = rankers_collection.update_one(filter_object, {"$set": update_object})
+        except Exception as e:
+            raise tfab_exception.DatabaseError("TFAB Database Error occured: " + str(e))
+
+        return result.matched_count == 1, result.modified_count == 1
+
 
     def edit_player(self, player_name, new_characteristic):
         """
