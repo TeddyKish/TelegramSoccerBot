@@ -16,14 +16,21 @@ class RankingsMessageParser:
         unranked_players = list(set(all_player_names) - set(user_rankings.keys()))
 
         i = 0
-        ranking_message = "אלו השחקנים שדירגת:\n"
-        for player, ranking in user_rankings.items():
-            i = i + 1
-            ranking_message += "{0}.{1} = {2}\n".format(i, player, ranking)
 
-        ranking_message += "\nלהלן השחקנים שלא דירגת:\n"
-        for player in unranked_players:
-            ranking_message += "{0} = \n".format(player)
+        if len(user_rankings.items()) == 0:
+            ranking_message = "לא קיימים שחקנים שדירגת.\n"
+        else:
+            ranking_message = "אלו השחקנים שדירגת:\n"
+            for player, ranking in user_rankings.items():
+                i = i + 1
+                ranking_message += "{0}.{1} = {2}\n".format(i, player, ranking)
+
+        if len(unranked_players) == 0:
+            ranking_message += "\nדירגת את כל השחקנים האפשריים."
+        else:
+            ranking_message += "\nלהלן השחקנים שלא דירגת:\n"
+            for player in unranked_players:
+                ranking_message += "{0} = \n".format(player)
 
         if ranking_message != "":
             ranking_message = ranking_message[:-1]

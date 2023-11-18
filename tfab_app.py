@@ -78,7 +78,7 @@ class TFABApplication(object):
                 TFABApplication.RANKER_MENU: [
                     CallbackQueryHandler(InputHandlers.pass_handler, pattern=str(TFABApplication.RANKER_MENU_RANK_SPECIFIC_PLAYER)),
                     CallbackQueryHandler(RankersMenuHandlers.rank_everyone_handler, pattern=str(TFABApplication.RANKER_MENU_RANK_EVERYONE)),
-                    CallbackQueryHandler(InputHandlers.pass_handler, pattern=str(TFABApplication.RANKER_MENU_SHOW_MY_RANKINGS)),
+                    CallbackQueryHandler(RankersMenuHandlers.show_my_rankings_handler, pattern=str(TFABApplication.RANKER_MENU_SHOW_MY_RANKINGS)),
                 ],
                 TFABApplication.ADMIN_MENU: [
                     CallbackQueryHandler(InputHandlers.pass_handler, pattern=str(TFABApplication.ADMIN_MENU_GAMES)),
@@ -319,6 +319,15 @@ class RankersMenuHandlers(object):
     """
 
     @staticmethod
+    def get_rankings_template(update, context):
+        player_names = [name for name, _ in TFABApplication.get_instance().db.get_player_list()]
+        user_rankings = TFABApplication.get_instance().db.get_user_rankings(update.effective_user.id)
+        if user_rankings is None:
+            raise tfab_exception.TFABException("Logged-in user doesn't have rankings!")
+
+        return tfab_message_parser.RankingsMessageParser.generate_rankings_template(player_names, user_rankings)
+
+    @staticmethod
     async def rankers_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
         Handle the rankers menu.
@@ -355,14 +364,7 @@ class RankersMenuHandlers(object):
         elif update_type == HandlerUtils.UpdateType.CALLBACK_QUERY:
             await update.callback_query.answer()
 
-            # Get ranking data to create message
-            player_names = [name for name, _ in TFABApplication.get_instance().db.get_player_list()]
-            user_rankings = TFABApplication.get_instance().db.get_user_rankings(update.effective_user.id)
-            if user_rankings is None:
-                raise tfab_exception.TFABException("Logged-in user doesn't have rankings!")
-
-            rankings_template = tfab_message_parser.RankingsMessageParser.generate_rankings_template(
-                player_names, user_rankings)
+            rankings_template = RankersMenuHandlers.get_rankings_template(update, context)
 
             await context.bot.send_message(chat_id=update.effective_chat.id, text=rankings_template)
             await context.bot.send_message(chat_id=update.effective_chat.id,
@@ -389,6 +391,23 @@ class RankersMenuHandlers(object):
             return await InputHandlers.entrypoint_handler(update, context)
 
         return await InputHandlers.illegal_situation_handler(update, context)
+
+    @staticmethod
+    async def show_my_rankings_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """
+        Handles the "show my rankings" option.
+        """
+        if HandlerUtils.get_update_type(update) != HandlerUtils.UpdateType.CALLBACK_QUERY:
+            await InputHandlers.illegal_situation_handler(update, context)
+            return TFABApplication.GENERAL_MENU
+
+        await update.callback_query.answer()
+
+        rankings_template = RankersMenuHandlers.get_rankings_template(update, context)
+
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=rankings_template)
+        context.user_data[UserDataIndices.CONTEXTUAL_LAST_OPERATION_STATUS] = True
+        return await InputHandlers.entrypoint_handler(update, context)
 
 
 class AdminMenuHandlers(object):
