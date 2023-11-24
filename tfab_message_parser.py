@@ -15,8 +15,6 @@ class RankingsMessageParser:
         """
         unranked_players = list(set(all_player_names) - set(user_rankings.keys()))
 
-
-
         if len(user_rankings.items()) == 0:
             ranking_message = "לא קיימים שחקנים שדירגת.\n"
         else:

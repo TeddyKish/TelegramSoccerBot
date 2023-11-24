@@ -119,8 +119,10 @@ class TFABDBHandler(object):
         filter_object = {self.USER_ID_KEY: user_id}
         update_object = {}
 
-        for player_name, ranking in rankings_dictionary.items():
-            if self.check_player_existence(player_name):
+        for player_name, ranking in rankings_dictionary.copy().items():
+            # Make sure player exists and isn't a goalkeeper
+            if self.check_player_existence(player_name) and\
+                    self.get_player_characteristic(player_name) != tfab_consts.PlayerCharacteristics["GOALKEEPER"]:
                 update_object["{0}.{1}".format(self.USER_RANKINGS_KEY, player_name)] = ranking
             else:
                 rankings_dictionary.pop(player_name)
@@ -131,7 +133,6 @@ class TFABDBHandler(object):
             raise tfab_exception.DatabaseError("TFAB Database Error occured: " + str(e))
 
         return result.matched_count == 1, result.modified_count == 1
-
 
     def edit_player(self, player_name, new_characteristic):
         """
@@ -166,6 +167,20 @@ class TFABDBHandler(object):
             raise tfab_exception.DatabaseError("TFAB Database Error occured: " + str(e))
 
         return result is not None
+
+    def get_player_characteristic(self, player_name):
+        """
+        :param player_name: The player to check.
+        :return: The characteristic of <player_name>.
+        """
+        players_collection = self.__get_collection(self.PLAYERS_COLLECTION_NAME)
+        filter_object = {self.PLAYER_NAME_KEY: player_name}
+        try:
+            result = players_collection.find_one(filter_object)
+        except Exception as e:
+            raise tfab_exception.DatabaseError("TFAB Database Error occured: " + str(e))
+
+        return None if result is None else result[self.PLAYER_CHARACTERISTICS_KEY]
 
     def check_admin_existence(self, admin_id):
         """
@@ -212,7 +227,7 @@ class TFABDBHandler(object):
             raise tfab_exception.DatabaseError("TFAB Database Error occured: " + str(e))
 
         # Makes sure we actually deleted a player
-        return player_delete_result.deleted_count == 1 
+        return player_delete_result.deleted_count == 1
 
     def __get_collection(self, collection_name):
         """

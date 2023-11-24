@@ -380,7 +380,7 @@ class RankersMenuHandlers(object):
 
                 await context.bot.send_message(chat_id=update.effective_chat.id, text=success_message)
             elif found:
-                await context.bot.send_message(chat_id=update.effective_chat.id, text="לא בוצעו שינויים, הזנת דירוגים שגויים או זהים לקודמים")
+                await context.bot.send_message(chat_id=update.effective_chat.id, text="לא בוצעו שינויים, הזנת דירוגים שגויים או זהים לקודמים. כמו כן, לא ניתן לדרג שוערים")
             else:
                 await context.bot.send_message(chat_id=update.effective_chat.id, text="פעולת הדירוג נכשלה, האם ההודעה שלך תקינה?")
             context.user_data[UserDataIndices.CONTEXTUAL_LAST_OPERATION_STATUS] = found
