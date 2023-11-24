@@ -15,12 +15,14 @@ class RankingsMessageParser:
         """
         unranked_players = list(set(all_player_names) - set(user_rankings.keys()))
 
-        i = 0
+
 
         if len(user_rankings.items()) == 0:
             ranking_message = "לא קיימים שחקנים שדירגת.\n"
         else:
             ranking_message = "אלו השחקנים שדירגת:\n"
+
+            i = 0
             for player, ranking in user_rankings.items():
                 i = i + 1
                 ranking_message += "{0}.{1} = {2}\n".format(i, player, ranking)

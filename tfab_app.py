@@ -24,7 +24,6 @@ class TFABApplication(object):
     GENERAL_MENU, \
         RANKER_MENU, \
             RANKER_MENU_RANK_EVERYONE, \
-            RANKER_MENU_RANK_SPECIFIC_PLAYER, \
             RANKER_MENU_SHOW_MY_RANKINGS, \
         ADMIN_MENU, \
             ADMIN_MENU_GAMES, \
@@ -39,7 +38,7 @@ class TFABApplication(object):
                 PLAYERS_MENU_ADD, \
                 PLAYERS_MENU_SHOW, \
                 PLAYERS_MENU_EDIT, \
-                PLAYERS_MENU_DELETE = range(22)
+                PLAYERS_MENU_DELETE = range(21)
 
     @staticmethod
     def get_instance(tfab_config=None, tfab_db=None):
@@ -74,9 +73,7 @@ class TFABApplication(object):
                     CallbackQueryHandler(RankersMenuHandlers.rankers_menu_handler, pattern=str(TFABApplication.RANKER_MENU)),
                     CallbackQueryHandler(AdminMenuHandlers.admin_menu_handler, pattern=str(TFABApplication.ADMIN_MENU)),
                 ],
-                # TODO: add here -> state for "go back", that holds all of the different functions
                 TFABApplication.RANKER_MENU: [
-                    CallbackQueryHandler(InputHandlers.pass_handler, pattern=str(TFABApplication.RANKER_MENU_RANK_SPECIFIC_PLAYER)),
                     CallbackQueryHandler(RankersMenuHandlers.rank_everyone_handler, pattern=str(TFABApplication.RANKER_MENU_RANK_EVERYONE)),
                     CallbackQueryHandler(RankersMenuHandlers.show_my_rankings_handler, pattern=str(TFABApplication.RANKER_MENU_SHOW_MY_RANKINGS)),
                 ],
@@ -342,8 +339,7 @@ class RankersMenuHandlers(object):
         text = """להלן פעולות הדירוגים האפשריות:"""
 
         keyboard = [
-            [InlineKeyboardButton("דרג שחקן ספציפי", callback_data=str(TFABApplication.RANKER_MENU_RANK_SPECIFIC_PLAYER))],
-            [InlineKeyboardButton("דרג את כולם", callback_data=str(TFABApplication.RANKER_MENU_RANK_EVERYONE))],
+            [InlineKeyboardButton("דרג שחקנים", callback_data=str(TFABApplication.RANKER_MENU_RANK_EVERYONE))],
             [InlineKeyboardButton("הצג דירוגים שלי", callback_data=str(TFABApplication.RANKER_MENU_SHOW_MY_RANKINGS))]
         ]
 

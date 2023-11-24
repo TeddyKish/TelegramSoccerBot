@@ -195,23 +195,24 @@ class TFABDBHandler(object):
 
     def delete_player(self, player_name):
         """
-        Deletes a single player.
+        Deletes a single player from the entire database.
         :param player_name: The player name that we wish to delete.
-        :return: True if a player was deleted, false otherwise
+        :return: True if the player was deleted successfully, false otherwise
         """
         players_collection = self.__get_collection(self.PLAYERS_COLLECTION_NAME)
-        filter_object = {self.PLAYER_NAME_KEY: player_name}
+        player_name_filter = {self.PLAYER_NAME_KEY: player_name}
 
-        # TODO: Make sure the player is deleted from all rankings as well
-        # - Maybe by manual deletion
-        # - Maybe by enforcing coupling between the rankers collections and the Players collection
+        rankers_collection = self.__get_collection(self.RANKERS_COLLECTION_NAME)
+        delete_ranking_operation = {'$unset': {"{0}.{1}".format(self.USER_RANKINGS_KEY, player_name): ""}}
+
         try:
-            result = players_collection.delete_one(filter_object)
+            player_delete_result = players_collection.delete_one(player_name_filter)
+            player_rankings_delete_result = rankers_collection.update_many({}, delete_ranking_operation)
         except Exception as e:
             raise tfab_exception.DatabaseError("TFAB Database Error occured: " + str(e))
 
         # Makes sure we actually deleted a player
-        return result.deleted_count == 1
+        return player_delete_result.deleted_count == 1 
 
     def __get_collection(self, collection_name):
         """

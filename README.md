@@ -5,13 +5,12 @@ Currently, expects to receive a YML configuration located at `./tfab_data/tfab_c
 ## Botito's Menu - Prototype
 ### Private Chat View:
 #### Implemented options are prefixed with a checkmark.
-- [ ] /help | /start -> Explain about the different options
-  - [ ] Rankers Menu
+- [X] /help | /start -> Explain about the different options
+  - [X] Rankers Menu
     - [X] Login: -> (If not logged in) What's the secret password? -> Thanks! Use /help to proceed.
-        - [ ] Rank Specific Player: -> Who do you want to rank? -> Rank that player
         - [X] Rank Everyone: -> *Gets a template message* Please fill this message and send it -> Success!
-      - [ ] My Ranking: -> Prints a message with all ranked players, and a list of all unranked players
-- [ ] Administrators Menu
+      - [X] My Ranking: -> Prints a message with all ranked players, and a list of all unranked players
+  - [ ] Administrators Menu
      - [X] Login: -> (If not logged in) What's the secret password? -> Thanks! Use /help to proceed.
        - [ ]  Games Menu
            - [ ]  Roster Menu
