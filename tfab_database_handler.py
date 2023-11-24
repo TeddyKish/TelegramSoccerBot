@@ -9,16 +9,26 @@ class TFABDBHandler(object):
     """
     Should be an interface for other DB handlers if one wishes to replace, currently works with MongoDB
     """
-    PLAYER_NAME_KEY = "PlayerName"
-    PLAYER_CHARACTERISTICS_KEY = "PlayerPosition"
+    PLAYERS_COLLECTION_NAME = "Players"
+    PLAYERS_NAME_KEY = "PlayerName"
+    PLAYERS_CHARACTERISTICS_KEY = "PlayerPosition"
 
+    RANKERS_COLLECTION_NAME = "AuthorizedRankers"
+    RANKERS_USER_RANKINGS_KEY = "UserRankings"
+    ADMINS_COLLECTION_NAME = "AuthorizedAdmins"
     USER_ID_KEY = "UserId"
     USER_FULLNAME_KEY = "UserFullName"
-    USER_RANKINGS_KEY = "UserRankings"
 
-    PLAYERS_COLLECTION_NAME = "Players"
-    RANKERS_COLLECTION_NAME = "AuthorizedRankers"
-    ADMINS_COLLECTION_NAME = "AuthorizedAdmins"
+    MATCHDAYS_COLLECTION_NAME = "Matchdays"
+    MATCHDAYS_GROUPS_KEY = "Groups"
+    MATCHDAYS_ORIGINAL_MESSAGE_KEY = "OriginalMessage"
+    MATCHDAYS_LOCATION_KEY = "Location"
+    MATCHDAYS_ROSTER_KEY = "Players"
+    MATCHDAYS_DATE_KEY = "Date"
+    MATCHDAYS_DATE_DAY_KEY = "Day"
+    MATCHDAYS_DATE_MONTH_KEY = "Month"
+    MATCHDAYS_DATE_YEAR_KEY = "Year"
+
 
     def __init__(self, db_name, db_port):
         self.db_name = db_name
@@ -38,7 +48,7 @@ class TFABDBHandler(object):
         Inserts a single player and their characteristics
         """
         new_player = \
-            {self.PLAYER_NAME_KEY: player_name, self.PLAYER_CHARACTERISTICS_KEY: characteristics}
+            {self.PLAYERS_NAME_KEY: player_name, self.PLAYERS_CHARACTERISTICS_KEY: characteristics}
         players_collection = self.__get_collection(self.PLAYERS_COLLECTION_NAME)
 
         try:
@@ -64,7 +74,7 @@ class TFABDBHandler(object):
         Inserts <ranker_name, ranker_id> to the rankers collection.
         """
         new_ranker = \
-            {self.USER_ID_KEY: ranker_id, self.USER_FULLNAME_KEY: ranker_name, self.USER_RANKINGS_KEY: {}}
+            {self.USER_ID_KEY: ranker_id, self.USER_FULLNAME_KEY: ranker_name, self.RANKERS_USER_RANKINGS_KEY: {}}
         rankers_collection = self.__get_collection(self.RANKERS_COLLECTION_NAME)
 
         try:
@@ -85,8 +95,8 @@ class TFABDBHandler(object):
 
         player_list = []
         for player in all_players_cursor:
-            player_list.append((player[self.PLAYER_NAME_KEY],
-                                tfab_consts.PlayerPositionToHebrew[player[self.PLAYER_CHARACTERISTICS_KEY]]))
+            player_list.append((player[self.PLAYERS_NAME_KEY],
+                                tfab_consts.PlayerPositionToHebrew[player[self.PLAYERS_CHARACTERISTICS_KEY]]))
         return player_list
 
     def get_user_rankings(self, user_id):
@@ -106,7 +116,7 @@ class TFABDBHandler(object):
         if result is None:
             return None
 
-        return result[self.USER_RANKINGS_KEY]
+        return result[self.RANKERS_USER_RANKINGS_KEY]
 
     def modify_user_rankings(self, user_id, rankings_dictionary):
         """
@@ -123,7 +133,7 @@ class TFABDBHandler(object):
             # Make sure player exists and isn't a goalkeeper
             if self.check_player_existence(player_name) and\
                     self.get_player_characteristic(player_name) != tfab_consts.PlayerCharacteristics["GOALKEEPER"]:
-                update_object["{0}.{1}".format(self.USER_RANKINGS_KEY, player_name)] = ranking
+                update_object["{0}.{1}".format(self.RANKERS_USER_RANKINGS_KEY, player_name)] = ranking
             else:
                 rankings_dictionary.pop(player_name)
 
@@ -142,8 +152,8 @@ class TFABDBHandler(object):
         :return: True if the player was found and the characteristic has been set, False otherwise.
         """
         players_collection = self.__get_collection(self.PLAYERS_COLLECTION_NAME)
-        filter_object = {self.PLAYER_NAME_KEY: player_name}
-        update_operation = {'$set': {self.PLAYER_CHARACTERISTICS_KEY: new_characteristic}}
+        filter_object = {self.PLAYERS_NAME_KEY: player_name}
+        update_operation = {'$set': {self.PLAYERS_CHARACTERISTICS_KEY: new_characteristic}}
 
         try:
             results = players_collection.update_one(filter_object, update_operation)
@@ -160,7 +170,7 @@ class TFABDBHandler(object):
         :return: True if the player exists in the Players collection, False otherwise
         """
         players_collection = self.__get_collection(self.PLAYERS_COLLECTION_NAME)
-        filter_object = {self.PLAYER_NAME_KEY: player_name}
+        filter_object = {self.PLAYERS_NAME_KEY: player_name}
         try:
             result = players_collection.find_one(filter_object)
         except Exception as e:
@@ -174,13 +184,13 @@ class TFABDBHandler(object):
         :return: The characteristic of <player_name>.
         """
         players_collection = self.__get_collection(self.PLAYERS_COLLECTION_NAME)
-        filter_object = {self.PLAYER_NAME_KEY: player_name}
+        filter_object = {self.PLAYERS_NAME_KEY: player_name}
         try:
             result = players_collection.find_one(filter_object)
         except Exception as e:
             raise tfab_exception.DatabaseError("TFAB Database Error occured: " + str(e))
 
-        return None if result is None else result[self.PLAYER_CHARACTERISTICS_KEY]
+        return None if result is None else result[self.PLAYERS_CHARACTERISTICS_KEY]
 
     def check_admin_existence(self, admin_id):
         """
@@ -215,10 +225,10 @@ class TFABDBHandler(object):
         :return: True if the player was deleted successfully, false otherwise
         """
         players_collection = self.__get_collection(self.PLAYERS_COLLECTION_NAME)
-        player_name_filter = {self.PLAYER_NAME_KEY: player_name}
+        player_name_filter = {self.PLAYERS_NAME_KEY: player_name}
 
         rankers_collection = self.__get_collection(self.RANKERS_COLLECTION_NAME)
-        delete_ranking_operation = {'$unset': {"{0}.{1}".format(self.USER_RANKINGS_KEY, player_name): ""}}
+        delete_ranking_operation = {'$unset': {"{0}.{1}".format(self.RANKERS_USER_RANKINGS_KEY, player_name): ""}}
 
         try:
             player_delete_result = players_collection.delete_one(player_name_filter)

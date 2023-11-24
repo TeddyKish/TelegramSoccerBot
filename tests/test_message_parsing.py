@@ -1,5 +1,7 @@
+import os
 import pytest
-from ..tfab_message_parser import RankingsMessageParser
+from ..tfab_message_parser import MessageParser
+from ..tfab_database_handler import TFABDBHandler
 
 first_message = """בלהבלה
 בלהלהלה
@@ -30,6 +32,24 @@ first_dict = {"טדי": "5", "זיו": "3.7", "ישי": "10", "גלעד": "2", "
 
 second_message = "עידן = 5"
 second_dict = {"עידן": "5"}
+
+data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../tfab_data/data")
+matchday_messages = []
+
+for filename in os.listdir(data_dir):
+    file_path = os.path.join(data_dir, filename)
+
+    if os.path.isfile(file_path):
+        with open(file_path, 'r', encoding='utf-8') as file:
+            matchday_messages.append((file_path, file.read()))
+
+expected_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../tfab_data/expected")
+with open(os.path.join(expected_dir, "locations"), "r", encoding="utf-8") as f:
+    locations = f.read().split("\n")
+
+with open(os.path.join(expected_dir, "player_list_sizes"), "r", encoding="utf-8") as f:
+    player_list_sizes = [int(line) for line in f.read().split("\n")]
+
 class TestMessageParsing:
 
     @pytest.mark.parametrize("parameters", [
@@ -38,4 +58,17 @@ class TestMessageParsing:
     ])
     def test_rankings_message(self, parameters):
         message, dictionary = parameters
-        assert RankingsMessageParser.parse_rankings_message(message) == dictionary
+        assert MessageParser.parse_rankings_message(message) == dictionary
+
+    @pytest.mark.parametrize("message_file", matchday_messages)
+    def test_matchday_messages(self, message_file):
+        print("File name is {0}".format(message_file[0]))
+        result_dict = MessageParser.parse_matchday_message(message_file[1])
+
+        assert result_dict[TFABDBHandler.MATCHDAYS_ROSTER_KEY] is not None and \
+               result_dict[TFABDBHandler.MATCHDAYS_DATE_KEY] is not None and \
+               result_dict[TFABDBHandler.MATCHDAYS_LOCATION_KEY] is not None and \
+               result_dict[TFABDBHandler.MATCHDAYS_ORIGINAL_MESSAGE_KEY] is not None
+
+        assert len(result_dict[TFABDBHandler.MATCHDAYS_ROSTER_KEY]) in player_list_sizes
+        assert result_dict[TFABDBHandler.MATCHDAYS_LOCATION_KEY] in locations

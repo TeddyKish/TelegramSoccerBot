@@ -5,7 +5,7 @@ from enum import IntEnum
 
 import tfab_message_parser
 from tfab_logger import tfab_logger
-from tfab_message_parser import RankingsMessageParser
+from tfab_message_parser import MessageParser
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, Bot
 from telegram.ext import filters, MessageHandler, ApplicationBuilder, ContextTypes, CommandHandler, CallbackQueryHandler
 from telegram.ext import ConversationHandler
@@ -322,7 +322,7 @@ class RankersMenuHandlers(object):
         if user_rankings is None:
             raise tfab_exception.TFABException("Logged-in user doesn't have rankings!")
 
-        return tfab_message_parser.RankingsMessageParser.generate_rankings_template(player_names, user_rankings)
+        return tfab_message_parser.MessageParser.generate_rankings_template(player_names, user_rankings)
 
     @staticmethod
     async def rankers_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -370,7 +370,7 @@ class RankersMenuHandlers(object):
         elif update_type == HandlerUtils.UpdateType.TEXTUAL_MESSAGE:
             # Do stuff after you got the user's ranking message
             rankings_message = update.message.text
-            rankings_dict = tfab_message_parser.RankingsMessageParser.parse_rankings_message(rankings_message)
+            rankings_dict = tfab_message_parser.MessageParser.parse_rankings_message(rankings_message)
             found, modified = TFABApplication.get_instance().db.modify_user_rankings(update.effective_user.id, rankings_dict)
 
             if modified:
