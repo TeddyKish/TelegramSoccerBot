@@ -1,11 +1,11 @@
 import logging
 import tfab_exception
 import tfab_consts
-from enum import IntEnum
+from datetime import datetime
 
 import tfab_message_parser
 from tfab_logger import tfab_logger
-from tfab_message_parser import MessageParser
+from telegram.constants import ParseMode
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, Bot
 from telegram.ext import filters, MessageHandler, ApplicationBuilder, ContextTypes, CommandHandler, CallbackQueryHandler
 from telegram.ext import ConversationHandler
@@ -82,7 +82,7 @@ class TFABApplication(object):
                 TFABApplication.ADMIN_MENU_MATCHDAYS: [
                     CallbackQueryHandler(AdminMenuHandlers.MatchdaysMenuHandlers.set_todays_list_menu, pattern=str(TFABApplication.MATCHDAYS_MENU_SET_TODAY_LIST)),
                     CallbackQueryHandler(InputHandlers.pass_handler, pattern=str(TFABApplication.MATCHDAYS_MENU_RANK_OUTSIDER)),
-                    CallbackQueryHandler(InputHandlers.pass_handler, pattern=str(TFABApplication.MATCHDAYS_MENU_SHOW_TODAY_INFO)),
+                    CallbackQueryHandler(AdminMenuHandlers.MatchdaysMenuHandlers.show_todays_info, pattern=str(TFABApplication.MATCHDAYS_MENU_SHOW_TODAY_INFO)),
                     CallbackQueryHandler(InputHandlers.pass_handler, pattern=str(TFABApplication.MATCHDAYS_MENU_GENERATE_TEAMS)),
                 ],
                 TFABApplication.ADMIN_MENU_PLAYERS: [
@@ -493,10 +493,7 @@ class AdminMenuHandlers(object):
                     result_dictionary[TFABApplication.get_instance().db.MATCHDAYS_ORIGINAL_MESSAGE_KEY],
                     result_dictionary[TFABApplication.get_instance().db.MATCHDAYS_LOCATION_KEY],
                     result_dictionary[TFABApplication.get_instance().db.MATCHDAYS_ROSTER_KEY],
-                    result_dictionary[TFABApplication.get_instance().db.MATCHDAYS_DATE_KEY][TFABApplication.get_instance().db.MATCHDAYS_DATE_DAY_KEY],
-                    result_dictionary[TFABApplication.get_instance().db.MATCHDAYS_DATE_KEY][TFABApplication.get_instance().db.MATCHDAYS_DATE_MONTH_KEY],
-                    result_dictionary[TFABApplication.get_instance().db.MATCHDAYS_DATE_KEY][TFABApplication.get_instance().db.MATCHDAYS_DATE_YEAR_KEY],
-                )
+                    result_dictionary[TFABApplication.get_instance().db.MATCHDAYS_DATE_KEY])
 
                 await context.bot.send_message(chat_id=update.effective_chat.id,
                                                    text="הרשימה תקינה ונקלטה בהצלחה")
@@ -506,6 +503,23 @@ class AdminMenuHandlers(object):
             await InputHandlers.illegal_situation_handler(update, context)
             return TFABApplication.GENERAL_MENU
 
+        @staticmethod
+        async def show_todays_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
+            """
+            Handle the admin->matchdays->show info menu.
+            """
+            await update.callback_query.answer()
+            today_date = datetime.now().strftime(TFABApplication.get_instance().db.MATCHDAYS_DATE_FORMAT)
+            todays_matchday = TFABApplication.get_instance().db.get_matchday(today_date)
+
+            if not todays_matchday:
+                await context.bot.send_message(chat_id=update.effective_chat.id, text="עדיין לא נקבעה רשימה להיום")
+            else:
+                message = tfab_message_parser.MessageParser.generate_matchday_message(todays_matchday)
+                await context.bot.send_message(chat_id=update.effective_chat.id, text=message)
+
+            context.user_data[UserDataIndices.CONTEXTUAL_LAST_OPERATION_STATUS] = True
+            return await InputHandlers.entrypoint_handler(update, context)
 
     class PlayersMenuHandlers(object):
         """
@@ -712,21 +726,6 @@ class AdminMenuHandlers(object):
 
         @staticmethod
         async def show_players_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-            def stringify_player_list(player_list):
-                """
-                Returns a formatted string that nicely displays the player list.
-                """
-                i = 1
-                all_players_message = ""
-                for player_name, characteristic in all_players_list:
-                    all_players_message += "{0}.{1} ({2})\n".format(i, player_name, characteristic)
-                    i = i + 1
-
-                if all_players_message != "":
-                    all_players_message = all_players_message[:-1]  # Removes the last \n in the string
-
-                return all_players_message
-
             query = update.callback_query
 
             # Situation 1
@@ -737,7 +736,7 @@ class AdminMenuHandlers(object):
             await query.answer()
 
             all_players_list = TFABApplication.get_instance().db.get_player_list()
-            all_players_message = stringify_player_list(all_players_list)
+            all_players_message = tfab_message_parser.MessageParser.stringify_player_list(all_players_list)
             context.user_data[UserDataIndices.CONTEXTUAL_LAST_OPERATION_STATUS] = True
 
             await context.bot.send_message(chat_id=update.effective_chat.id, text=all_players_message)

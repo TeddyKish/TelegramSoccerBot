@@ -1,3 +1,4 @@
+import re
 import os
 import pytest
 from ..tfab_message_parser import MessageParser
@@ -72,3 +73,6 @@ class TestMessageParsing:
 
         assert len(result_dict[TFABDBHandler.MATCHDAYS_ROSTER_KEY]) in player_list_sizes
         assert result_dict[TFABDBHandler.MATCHDAYS_LOCATION_KEY] in locations
+
+        pattern = re.compile(r"\d{2}-\d{2}-\d{4}")
+        assert pattern.search(result_dict[TFABDBHandler.MATCHDAYS_DATE_KEY].strip())

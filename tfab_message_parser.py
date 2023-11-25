@@ -1,5 +1,6 @@
 import re
 from tfab_database_handler import TFABDBHandler
+from datetime import datetime
 
 class MessageParser:
     """
@@ -18,9 +19,14 @@ class MessageParser:
             match = pattern.search(line.strip())
 
             if match:
-                return {TFABDBHandler.MATCHDAYS_DATE_DAY_KEY: match.group(1).strip(),
-                        TFABDBHandler.MATCHDAYS_DATE_MONTH_KEY: match.group(3).strip(),
-                        TFABDBHandler.MATCHDAYS_DATE_YEAR_KEY: match.group(5).strip()}
+                day = match.group(1).strip()
+                month = match.group(3).strip()
+                year = match.group(5).strip()
+
+                if len(year) == 2:
+                    year = "20" + year
+
+                return datetime(int(year), int(month), int(day)).strftime(TFABDBHandler.MATCHDAYS_DATE_FORMAT)
 
         return None
 
@@ -64,6 +70,28 @@ class MessageParser:
         return players
 
     @staticmethod
+    def stringify_player_list(player_list, with_characteristic=True):
+        """
+        Returns a formatted string that nicely displays the player list.
+        """
+        i = 1
+        all_players_message = ""
+
+        if with_characteristic:
+            for player_name, characteristic in player_list:
+                all_players_message += "{0}.{1} ({2})\n".format(i, player_name, characteristic)
+                i = i + 1
+        else:
+            for player_name in player_list:
+                all_players_message += "{0}.{1}\n".format(i, player_name)
+                i = i + 1
+
+        if all_players_message != "":
+            all_players_message = all_players_message[:-1]  # Removes the last \n in the string
+
+        return all_players_message
+
+    @staticmethod
     def parse_matchday_message(message):
         """
         Parses a matchday message into a dictionary.
@@ -75,6 +103,26 @@ class MessageParser:
                 TFABDBHandler.MATCHDAYS_ORIGINAL_MESSAGE_KEY: message,
                 TFABDBHandler.MATCHDAYS_ROSTER_KEY: MessageParser._get_roster_value(message)}
 
+    @staticmethod
+    def generate_matchday_message(matchday_dict):
+        """
+        :return: A nicely formatted message, describing the information within <matchday_dict>
+        """
+        message = "הרשימה היומית כפי שנקלטה בבוטיטו:\n"
+        date = matchday_dict[TFABDBHandler.MATCHDAYS_DATE_KEY]
+        location = matchday_dict[TFABDBHandler.MATCHDAYS_LOCATION_KEY]
+        player_list = matchday_dict[TFABDBHandler.MATCHDAYS_ROSTER_KEY]
+
+        if date:
+            message += "תאריך: {0}\n".format(date)
+        if location:
+            message += "מיקום: {0}\n".format(location)
+        if player_list:
+            message += "----------------------------------------\n"
+            message += MessageParser.stringify_player_list(player_list, with_characteristic=False)
+            message += "\n----------------------------------------"
+
+        return message
     @staticmethod
     def generate_rankings_template(all_player_names, user_rankings):
         """
