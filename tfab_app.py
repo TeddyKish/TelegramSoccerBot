@@ -18,6 +18,7 @@ class TFABApplication(object):
     _instance = None
 
     # The hierarchy of menus within this application
+
     ADMIN_LOGIN, \
     RANKERS_LOGIN, \
     GOT_INPUT,  \
@@ -26,19 +27,16 @@ class TFABApplication(object):
             RANKER_MENU_RANK_EVERYONE, \
             RANKER_MENU_SHOW_MY_RANKINGS, \
         ADMIN_MENU, \
-            ADMIN_MENU_GAMES, \
-                GAMES_MENU_LIST, \
-                    GAMES_MENU_LIST_SET, \
-                    GAMES_MENU_LIST_RANK_OUTSIDER, \
-                    GAMES_MENU_LIST_SHOW_TODAY, \
-                GAMES_MENU_GROUPS, \
-                    GAMES_MENU_GROUPS_GENERATE, \
-                    GAMES_MENU_GROUPS_SHOW, \
+            ADMIN_MENU_MATCHDAYS, \
+                MATCHDAYS_MENU_SET_TODAY_LIST, \
+                MATCHDAYS_MENU_GENERATE_TEAMS, \
+                MATCHDAYS_MENU_RANK_OUTSIDER, \
+                MATCHDAYS_MENU_SHOW_TODAY_INFO, \
             ADMIN_MENU_PLAYERS, \
                 PLAYERS_MENU_ADD, \
                 PLAYERS_MENU_SHOW, \
                 PLAYERS_MENU_EDIT, \
-                PLAYERS_MENU_DELETE = range(21)
+                PLAYERS_MENU_DELETE = range(18)
 
     @staticmethod
     def get_instance(tfab_config=None, tfab_db=None):
@@ -78,21 +76,14 @@ class TFABApplication(object):
                     CallbackQueryHandler(RankersMenuHandlers.show_my_rankings_handler, pattern=str(TFABApplication.RANKER_MENU_SHOW_MY_RANKINGS)),
                 ],
                 TFABApplication.ADMIN_MENU: [
-                    CallbackQueryHandler(InputHandlers.pass_handler, pattern=str(TFABApplication.ADMIN_MENU_GAMES)),
+                    CallbackQueryHandler(AdminMenuHandlers.MatchdaysMenuHandlers.matchdays_menu_handler, pattern=str(TFABApplication.ADMIN_MENU_MATCHDAYS)),
                     CallbackQueryHandler(AdminMenuHandlers.PlayersMenuHandlers.players_menu_handler, pattern=str(TFABApplication.ADMIN_MENU_PLAYERS)),
                 ],
-                TFABApplication.ADMIN_MENU_GAMES: [
-                    CallbackQueryHandler(InputHandlers.pass_handler, pattern=str(TFABApplication.GAMES_MENU_LIST)),
-                    CallbackQueryHandler(InputHandlers.pass_handler, pattern=str(TFABApplication.GAMES_MENU_GROUPS)),
-                ],
-                TFABApplication.GAMES_MENU_LIST: [
-                    CallbackQueryHandler(InputHandlers.pass_handler, pattern=str(TFABApplication.GAMES_MENU_LIST_SET)),
-                    CallbackQueryHandler(InputHandlers.pass_handler, pattern=str(TFABApplication.GAMES_MENU_LIST_RANK_OUTSIDER)),
-                    CallbackQueryHandler(InputHandlers.pass_handler, pattern=str(TFABApplication.GAMES_MENU_LIST_SHOW_TODAY)),
-                ],
-                TFABApplication.GAMES_MENU_GROUPS: [
-                    CallbackQueryHandler(InputHandlers.pass_handler, pattern=str(TFABApplication.GAMES_MENU_GROUPS_GENERATE)),
-                    CallbackQueryHandler(InputHandlers.pass_handler, pattern=str(TFABApplication.GAMES_MENU_GROUPS_SHOW)),
+                TFABApplication.ADMIN_MENU_MATCHDAYS: [
+                    CallbackQueryHandler(AdminMenuHandlers.MatchdaysMenuHandlers.set_todays_list_menu, pattern=str(TFABApplication.MATCHDAYS_MENU_SET_TODAY_LIST)),
+                    CallbackQueryHandler(InputHandlers.pass_handler, pattern=str(TFABApplication.MATCHDAYS_MENU_RANK_OUTSIDER)),
+                    CallbackQueryHandler(InputHandlers.pass_handler, pattern=str(TFABApplication.MATCHDAYS_MENU_SHOW_TODAY_INFO)),
+                    CallbackQueryHandler(InputHandlers.pass_handler, pattern=str(TFABApplication.MATCHDAYS_MENU_GENERATE_TEAMS)),
                 ],
                 TFABApplication.ADMIN_MENU_PLAYERS: [
                     CallbackQueryHandler(AdminMenuHandlers.PlayersMenuHandlers.add_player_handler, pattern=str(TFABApplication.PLAYERS_MENU_ADD)),
@@ -226,6 +217,8 @@ class InputHandlers(object):
             return await InputHandlers.ranker_login_handler(update, context)
         elif context.user_data[UserDataIndices.CURRENT_STATE] == TFABApplication.RANKER_MENU_RANK_EVERYONE:
             return await RankersMenuHandlers.rank_everyone_handler(update, context)
+        elif context.user_data[UserDataIndices.CURRENT_STATE] == TFABApplication.MATCHDAYS_MENU_SET_TODAY_LIST:
+            return await AdminMenuHandlers.MatchdaysMenuHandlers.set_todays_list_menu(update, context)
         else:
             raise tfab_exception.TFABException("text input handler reached invalid state")
 
@@ -427,13 +420,92 @@ class AdminMenuHandlers(object):
         text = """להלן פעולות המנהלים האפשריות:"""
 
         keyboard = [
-            [InlineKeyboardButton("נהל משחקים", callback_data=str(TFABApplication.ADMIN_MENU_GAMES))],
+            [InlineKeyboardButton("נהל משחקים", callback_data=str(TFABApplication.ADMIN_MENU_MATCHDAYS))],
             [InlineKeyboardButton("נהל שחקנים", callback_data=str(TFABApplication.ADMIN_MENU_PLAYERS))]
         ]
 
         reply_markup = InlineKeyboardMarkup(keyboard)
         await query.edit_message_text(text, reply_markup=reply_markup)
         return TFABApplication.ADMIN_MENU
+
+    class MatchdaysMenuHandlers(object):
+        """
+        Handles the matchdays menu hierarchy.
+        """
+
+        @staticmethod
+        async def matchdays_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+            """
+            Handle the admin->matchdays menu.
+            """
+            query = update.callback_query
+            await query.answer()
+
+            text = """בחר את האפשרות הרצויה:"""
+
+            keyboard = [
+                [InlineKeyboardButton("הצג מידע להיום", callback_data=str(TFABApplication.MATCHDAYS_MENU_SHOW_TODAY_INFO))],
+                [InlineKeyboardButton("צור כוחות", callback_data=str(TFABApplication.MATCHDAYS_MENU_GENERATE_TEAMS))],
+                [InlineKeyboardButton("קבע רשימה להיום", callback_data=str(TFABApplication.MATCHDAYS_MENU_SET_TODAY_LIST)),
+                 InlineKeyboardButton("דרג מזמין חיצוני", callback_data=str(TFABApplication.MATCHDAYS_MENU_RANK_OUTSIDER))]
+            ]
+
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            await query.edit_message_text(text, reply_markup=reply_markup)
+            return TFABApplication.ADMIN_MENU_MATCHDAYS
+
+        @staticmethod
+        async def set_todays_list_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+            """
+            Handle the admin->matchdays->set list menu.
+            """
+            update_type = HandlerUtils.get_update_type(update)
+
+            if update_type == HandlerUtils.UpdateType.CALLBACK_QUERY:
+                await update.callback_query.answer()
+
+                await context.bot.send_message(chat_id=update.effective_chat.id, text="שלח בבקשה את רשימת המשחק להיום")
+                context.user_data[UserDataIndices.CURRENT_STATE] = TFABApplication.MATCHDAYS_MENU_SET_TODAY_LIST
+                return TFABApplication.GOT_INPUT
+            elif update_type == HandlerUtils.UpdateType.TEXTUAL_MESSAGE:
+                # Do stuff after you got the user's list
+                list_message = update.message.text
+                result_dictionary = tfab_message_parser.MessageParser.parse_matchday_message(list_message)
+                context.user_data[UserDataIndices.CONTEXTUAL_LAST_OPERATION_STATUS] = False
+
+                if result_dictionary[TFABApplication.get_instance().db.MATCHDAYS_ROSTER_KEY] is None:
+                    await context.bot.send_message(chat_id=update.effective_chat.id,
+                                                   text="הרשימה ששלחת לא תקינה, לא הצלחתי לקרוא את רשימת השחקנים כהלכה")
+                    return await InputHandlers.entrypoint_handler(update, context)
+                elif result_dictionary[TFABApplication.get_instance().db.MATCHDAYS_DATE_KEY] is None:
+                    await context.bot.send_message(chat_id=update.effective_chat.id,
+                                                   text="הרשימה ששלחת לא תקינה, לא הצלחתי לקרוא את התאריך כהלכה")
+                    return await InputHandlers.entrypoint_handler(update, context)
+                elif result_dictionary[TFABApplication.get_instance().db.MATCHDAYS_LOCATION_KEY] is None:
+                    await context.bot.send_message(chat_id=update.effective_chat.id,
+                                                   text="הרשימה ששלחת לא תקינה, לא הצלחתי לקרוא את המיקום כהלכה")
+                    return await InputHandlers.entrypoint_handler(update, context)
+                elif result_dictionary[TFABApplication.get_instance().db.MATCHDAYS_ORIGINAL_MESSAGE_KEY] is None:
+                    return await InputHandlers.illegal_situation_handler(update, context)
+
+                # Insert DB information
+                TFABApplication.get_instance().db.insert_matchday(
+                    result_dictionary[TFABApplication.get_instance().db.MATCHDAYS_ORIGINAL_MESSAGE_KEY],
+                    result_dictionary[TFABApplication.get_instance().db.MATCHDAYS_LOCATION_KEY],
+                    result_dictionary[TFABApplication.get_instance().db.MATCHDAYS_ROSTER_KEY],
+                    result_dictionary[TFABApplication.get_instance().db.MATCHDAYS_DATE_KEY][TFABApplication.get_instance().db.MATCHDAYS_DATE_DAY_KEY],
+                    result_dictionary[TFABApplication.get_instance().db.MATCHDAYS_DATE_KEY][TFABApplication.get_instance().db.MATCHDAYS_DATE_MONTH_KEY],
+                    result_dictionary[TFABApplication.get_instance().db.MATCHDAYS_DATE_KEY][TFABApplication.get_instance().db.MATCHDAYS_DATE_YEAR_KEY],
+                )
+
+                await context.bot.send_message(chat_id=update.effective_chat.id,
+                                                   text="הרשימה תקינה ונקלטה בהצלחה")
+                context.user_data[UserDataIndices.CONTEXTUAL_LAST_OPERATION_STATUS] = True
+                return await InputHandlers.entrypoint_handler(update, context)
+
+            await InputHandlers.illegal_situation_handler(update, context)
+            return TFABApplication.GENERAL_MENU
+
 
     class PlayersMenuHandlers(object):
         """

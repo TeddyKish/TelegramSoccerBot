@@ -20,7 +20,7 @@ class TFABDBHandler(object):
     USER_FULLNAME_KEY = "UserFullName"
 
     MATCHDAYS_COLLECTION_NAME = "Matchdays"
-    MATCHDAYS_GROUPS_KEY = "Groups"
+    MATCHDAYS_TEAMS_KEY = "Teams"
     MATCHDAYS_ORIGINAL_MESSAGE_KEY = "OriginalMessage"
     MATCHDAYS_LOCATION_KEY = "Location"
     MATCHDAYS_ROSTER_KEY = "Players"
@@ -39,7 +39,7 @@ class TFABDBHandler(object):
             raise TFABException("Error initializing MongoDB")
 
         collection_names = self.db.list_collection_names()
-        for cname in [self.PLAYERS_COLLECTION_NAME, self.ADMINS_COLLECTION_NAME, self.RANKERS_COLLECTION_NAME]:
+        for cname in [self.PLAYERS_COLLECTION_NAME, self.ADMINS_COLLECTION_NAME, self.RANKERS_COLLECTION_NAME, self.MATCHDAYS_COLLECTION_NAME]:
             if cname not in collection_names:
                 self.db.create_collection(cname)
 
@@ -79,6 +79,33 @@ class TFABDBHandler(object):
 
         try:
             rankers_collection.insert_one(new_ranker)
+        except Exception as e:
+            raise tfab_exception.DatabaseError("TFAB Database Error occured: " + str(e))
+
+    def insert_matchday(self, original_message, location, player_list, date_day, date_month, date_year):
+        """
+        Inserts <matchday_dict> to the DB.
+        If there is a matchday on the same date, it deletes the previous matchday and sets the current one as new.
+        """
+        if not isinstance(player_list, list) or not isinstance(original_message, str) or not isinstance(location, str)\
+            or not isinstance(date_day, str) or not isinstance(date_month, str) or not isinstance(date_year,str):
+            raise tfab_exception.DatabaseError("TFAB Database Error occured: Illegal data when inserting a new matchday")
+
+        if self.check_matchday_existence(date_day, date_month, date_year):
+            if not self.delete_matchday(date_day, date_month, date_year):
+                raise tfab_exception.DatabaseError("TFAB Database Error occured: Couldn't delete existing matchday")
+
+        matchday_date_dict = {self.MATCHDAYS_DATE_DAY_KEY: date_day, self.MATCHDAYS_DATE_MONTH_KEY: date_month,
+                      self.MATCHDAYS_DATE_YEAR_KEY: date_year}
+        matchday_dict = {self.MATCHDAYS_ORIGINAL_MESSAGE_KEY: original_message,
+                         self.MATCHDAYS_LOCATION_KEY: location,
+                         self.MATCHDAYS_ROSTER_KEY: player_list,
+                         self.MATCHDAYS_DATE_KEY: matchday_date_dict}
+
+        matchdays_collection = self.__get_collection(self.MATCHDAYS_COLLECTION_NAME)
+
+        try:
+            matchdays_collection.insert_one(matchday_dict)
         except Exception as e:
             raise tfab_exception.DatabaseError("TFAB Database Error occured: " + str(e))
 
@@ -218,6 +245,21 @@ class TFABDBHandler(object):
 
         return result is not None
 
+    def check_matchday_existence(self, date_day, date_month, date_year):
+        """
+        :return: True if a matchday that occurs in <DDMMYY> exists, False otherwise.
+        """
+        matchdays_collection = self.__get_collection(self.MATCHDAYS_COLLECTION_NAME)
+        filter_object = {self.MATCHDAYS_DATE_KEY: {self.MATCHDAYS_DATE_DAY_KEY: date_day,
+                                                   self.MATCHDAYS_DATE_MONTH_KEY: date_month,
+                                                   self.MATCHDAYS_DATE_YEAR_KEY: date_year}}
+        try:
+            result = matchdays_collection.find_one(filter_object)
+        except Exception as e:
+            raise tfab_exception.DatabaseError("TFAB Database Error occured: " + str(e))
+
+        return result is not None
+
     def delete_player(self, player_name):
         """
         Deletes a single player from the entire database.
@@ -238,6 +280,24 @@ class TFABDBHandler(object):
 
         # Makes sure we actually deleted a player
         return player_delete_result.deleted_count == 1
+
+    def delete_matchday(self, date_day, date_month, date_year):
+        """
+        Deletes the matchday that occurs at <DDMMYY>.
+        :return: True if a single matchday was deleted successfully, False otherwise.
+        """
+        matchdays_collection = self.__get_collection(self.MATCHDAYS_COLLECTION_NAME)
+        filter_object = {self.MATCHDAYS_DATE_KEY: {self.MATCHDAYS_DATE_DAY_KEY: date_day,
+                                                   self.MATCHDAYS_DATE_MONTH_KEY: date_month,
+                                                   self.MATCHDAYS_DATE_YEAR_KEY: date_year}}
+
+        try:
+            matchdays_delete_result = matchdays_collection.delete_one(filter_object)
+        except Exception as e:
+            raise tfab_exception.DatabaseError("TFAB Database Error occured: " + str(e))
+
+        # Makes sure we actually deleted a player
+        return matchdays_delete_result.deleted_count == 1
 
     def __get_collection(self, collection_name):
         """
