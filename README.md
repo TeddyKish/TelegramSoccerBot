@@ -14,7 +14,7 @@ Currently, expects to receive a YML configuration located at `./tfab_data/tfab_c
      - [X] Login: -> (If not logged in) What's the secret password? -> Thanks! Use /help to proceed.
        - [ ]  Matchdays Menu
                - [X] Today's Roster: -> Please send today's message -> Successfully loaded today's list
-               - [ ] Generate: -> Generates today's teams, with the sum of each team's individual ratings at the end
+               - [X] Generate: -> Generates today's teams, with the sum of each team's individual ratings at the end
                - [ ] Outside Player: -> References the Add Player Menu 
                - [X] Show: -> Shows today's information
        - [X]  Players Menu

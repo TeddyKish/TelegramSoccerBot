@@ -3,6 +3,7 @@ import tfab_exception
 from tfab_exception import TFABException
 from tfab_logger import tfab_logger
 from pymongo import MongoClient
+from functools import reduce
 
 
 class TFABDBHandler(object):
@@ -27,6 +28,10 @@ class TFABDBHandler(object):
     MATCHDAYS_DATE_KEY = "Date"
     MATCHDAYS_DATE_FORMAT = "%d-%m-%Y"
 
+    MATCHDAYS_SPECIFIC_TEAM_ROSTER_KEY = "TeamPlayers"
+    MATCHDAYS_SPECIFIC_TEAM_RATING_KEY = "TeamRating"
+    MATCHDAYS_SPECIFIC_TEAM_PLAYER_RATING_KEY = "PlayerAverageRating"
+
 
     def __init__(self, db_name, db_port):
         self.db_name = db_name
@@ -45,6 +50,9 @@ class TFABDBHandler(object):
         """
         Inserts a single player and their characteristics
         """
+        if self.check_player_existence(player_name):
+            return
+
         new_player = \
             {self.PLAYERS_NAME_KEY: player_name, self.PLAYERS_CHARACTERISTICS_KEY: characteristics}
         players_collection = self.__get_collection(self.PLAYERS_COLLECTION_NAME)
@@ -96,7 +104,8 @@ class TFABDBHandler(object):
         matchday_dict = {self.MATCHDAYS_ORIGINAL_MESSAGE_KEY: original_message,
                          self.MATCHDAYS_LOCATION_KEY: location,
                          self.MATCHDAYS_ROSTER_KEY: player_list,
-                         self.MATCHDAYS_DATE_KEY: date}
+                         self.MATCHDAYS_DATE_KEY: date,
+                         self.MATCHDAYS_TEAMS_KEY: []}
 
         matchdays_collection = self.__get_collection(self.MATCHDAYS_COLLECTION_NAME)
 
@@ -211,6 +220,48 @@ class TFABDBHandler(object):
             raise tfab_exception.DatabaseError("TFAB Database Error occured: " + str(e))
 
         return result is not None
+
+    def get_player_average_rating(self, player_name):
+        """
+        Returns the average rating, across all the different rankers, for <player_name>.
+        :param player_name: The player's name.
+        :return: The average rating.
+        """
+
+        rankers_collection = self.__get_collection(self.RANKERS_COLLECTION_NAME)
+
+        try:
+            all_rankers_cursor = rankers_collection.find()
+        except Exception as e:
+            raise tfab_exception.DatabaseError("TFAB Database Error occured: " + str(e))
+
+        rating_list = []
+        for ranker in all_rankers_cursor:
+            # check existence
+            rankings_dictionary = ranker[self.RANKERS_USER_RANKINGS_KEY]
+
+            if player_name in rankings_dictionary:
+                rating_list.append(int(rankings_dictionary[player_name]))
+
+        return sum(rating_list) / len(rating_list) if rating_list else 0
+
+    def insert_teams_to_matchday(self, date, teams):
+        """
+        Inserts <teams> into the matchday occuring at <date>.
+        :param date: The date of the relevant matchday.
+        :param teams: The generated teams for this matchday.
+        """
+        matchdays_collection = self.__get_collection(self.MATCHDAYS_COLLECTION_NAME)
+        filter_object = {self.MATCHDAYS_DATE_KEY: date}
+        update_operation = {'$set': {self.MATCHDAYS_TEAMS_KEY: teams}}
+
+        try:
+            results = matchdays_collection.update_one(filter_object, update_operation)
+        except Exception as e:
+            raise tfab_exception.DatabaseError("TFAB Database Error occured: " + str(e))
+
+        # Not checking modified_count, to allow an admin to generate the same teams without triggering errors
+        return results.matched_count == 1
 
     def get_player_characteristic(self, player_name):
         """

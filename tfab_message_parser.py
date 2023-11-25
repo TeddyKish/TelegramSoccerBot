@@ -112,6 +112,7 @@ class MessageParser:
         date = matchday_dict[TFABDBHandler.MATCHDAYS_DATE_KEY]
         location = matchday_dict[TFABDBHandler.MATCHDAYS_LOCATION_KEY]
         player_list = matchday_dict[TFABDBHandler.MATCHDAYS_ROSTER_KEY]
+        teams = matchday_dict[TFABDBHandler.MATCHDAYS_TEAMS_KEY]
 
         if date:
             message += "תאריך: {0}\n".format(date)
@@ -120,9 +121,25 @@ class MessageParser:
         if player_list:
             message += "----------------------------------------\n"
             message += MessageParser.stringify_player_list(player_list, with_characteristic=False)
-            message += "\n----------------------------------------"
+            message += "\n----------------------------------------\n"
+        if teams:
+            message += "\nלהלן הקבוצות שנוצרו עבור המשחק:\n"
+            i = 1
+            for team in teams:
+                message += "קבוצה {0}: (ציון הקבוצה - {1})\n".format(i, team[TFABDBHandler.MATCHDAYS_SPECIFIC_TEAM_RATING_KEY])
+                j = 1
+                players = team[TFABDBHandler.MATCHDAYS_SPECIFIC_TEAM_ROSTER_KEY]
+                for player in players:
+                    message += "{0}.{1} - {2}\n".format(j, player[TFABDBHandler.PLAYERS_NAME_KEY],
+                                                      player[TFABDBHandler.MATCHDAYS_SPECIFIC_TEAM_PLAYER_RATING_KEY])
+                    j = j + 1
+                message += "\n\n"
+                i = i + 1
+
+            message += "שיהיה בהצלחה!\n"
 
         return message
+
     @staticmethod
     def generate_rankings_template(all_player_names, user_rankings):
         """

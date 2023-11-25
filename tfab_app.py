@@ -1,5 +1,6 @@
 import logging
 import tfab_exception
+import tfab_team_generator
 import tfab_consts
 from datetime import datetime
 
@@ -80,10 +81,10 @@ class TFABApplication(object):
                     CallbackQueryHandler(AdminMenuHandlers.PlayersMenuHandlers.players_menu_handler, pattern=str(TFABApplication.ADMIN_MENU_PLAYERS)),
                 ],
                 TFABApplication.ADMIN_MENU_MATCHDAYS: [
-                    CallbackQueryHandler(AdminMenuHandlers.MatchdaysMenuHandlers.set_todays_list_menu, pattern=str(TFABApplication.MATCHDAYS_MENU_SET_TODAY_LIST)),
+                    CallbackQueryHandler(AdminMenuHandlers.MatchdaysMenuHandlers.set_todays_list_handler, pattern=str(TFABApplication.MATCHDAYS_MENU_SET_TODAY_LIST)),
                     CallbackQueryHandler(InputHandlers.pass_handler, pattern=str(TFABApplication.MATCHDAYS_MENU_RANK_OUTSIDER)),
-                    CallbackQueryHandler(AdminMenuHandlers.MatchdaysMenuHandlers.show_todays_info, pattern=str(TFABApplication.MATCHDAYS_MENU_SHOW_TODAY_INFO)),
-                    CallbackQueryHandler(InputHandlers.pass_handler, pattern=str(TFABApplication.MATCHDAYS_MENU_GENERATE_TEAMS)),
+                    CallbackQueryHandler(AdminMenuHandlers.MatchdaysMenuHandlers.show_todays_info_handler, pattern=str(TFABApplication.MATCHDAYS_MENU_SHOW_TODAY_INFO)),
+                    CallbackQueryHandler(AdminMenuHandlers.MatchdaysMenuHandlers.generate_teams_handler, pattern=str(TFABApplication.MATCHDAYS_MENU_GENERATE_TEAMS)),
                 ],
                 TFABApplication.ADMIN_MENU_PLAYERS: [
                     CallbackQueryHandler(AdminMenuHandlers.PlayersMenuHandlers.add_player_handler, pattern=str(TFABApplication.PLAYERS_MENU_ADD)),
@@ -218,7 +219,7 @@ class InputHandlers(object):
         elif context.user_data[UserDataIndices.CURRENT_STATE] == TFABApplication.RANKER_MENU_RANK_EVERYONE:
             return await RankersMenuHandlers.rank_everyone_handler(update, context)
         elif context.user_data[UserDataIndices.CURRENT_STATE] == TFABApplication.MATCHDAYS_MENU_SET_TODAY_LIST:
-            return await AdminMenuHandlers.MatchdaysMenuHandlers.set_todays_list_menu(update, context)
+            return await AdminMenuHandlers.MatchdaysMenuHandlers.set_todays_list_handler(update, context)
         else:
             raise tfab_exception.TFABException("text input handler reached invalid state")
 
@@ -455,7 +456,55 @@ class AdminMenuHandlers(object):
             return TFABApplication.ADMIN_MENU_MATCHDAYS
 
         @staticmethod
-        async def set_todays_list_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        async def generate_teams_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+            """
+            Handle the admin->matchdays->generate teams menu.
+            """
+            query = update.callback_query
+            await query.answer()
+            db = TFABApplication.get_instance().db
+
+            today_date = datetime.now().strftime(db.MATCHDAYS_DATE_FORMAT)
+            if not db.check_matchday_existence(today_date):
+                context.user_data[UserDataIndices.CONTEXTUAL_LAST_OPERATION_STATUS] = False
+                await context.bot.send_message(chat_id=update.effective_chat.id, text="עדיין לא נקבעה רשימה להיום")
+                return await InputHandlers.entrypoint_handler(update, context)
+
+            todays_matchday = db.get_matchday(today_date)
+            todays_player_list = todays_matchday[db.MATCHDAYS_ROSTER_KEY]
+
+            all_players_exist_in_db = True
+            for player in todays_player_list:
+                if not db.check_player_existence(player):
+                    all_players_exist_in_db = False
+                    break
+
+            if not all_players_exist_in_db:
+                context.user_data[UserDataIndices.CONTEXTUAL_LAST_OPERATION_STATUS] = False
+                await context.bot.send_message(chat_id=update.effective_chat.id, text="ברשימה קיימים שחקנים לא מוכרים למערכת, תוסיף אותם דרך תפריט השחקנים ואז נסה שוב")
+                return await InputHandlers.entrypoint_handler(update, context)
+
+            # Prepare the data for the generation function
+            player_dicts_list = []
+            for player in todays_player_list:
+                player_dicts_list.append({
+                    db.PLAYERS_NAME_KEY: player,
+                    db.PLAYERS_CHARACTERISTICS_KEY: db.get_player_characteristic(player),
+                    db.MATCHDAYS_SPECIFIC_TEAM_PLAYER_RATING_KEY: db.get_player_average_rating(player)})
+
+            teams_dict = tfab_team_generator.TeamGenerator.generate_teams(player_dicts_list)
+            if not db.insert_teams_to_matchday(today_date, teams_dict):
+                # Impossible because we already checked that there is a matchday occuring today
+                await InputHandlers.illegal_situation_handler(update, context)
+                return TFABApplication.GENERAL_MENU
+
+            message = tfab_message_parser.MessageParser.generate_matchday_message(db.get_matchday(today_date))
+            await context.bot.send_message(chat_id=update.effective_chat.id, text=message)
+            context.user_data[UserDataIndices.CONTEXTUAL_LAST_OPERATION_STATUS] = True
+            return await InputHandlers.entrypoint_handler(update, context)
+
+        @staticmethod
+        async def set_todays_list_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             """
             Handle the admin->matchdays->set list menu.
             """
@@ -504,7 +553,7 @@ class AdminMenuHandlers(object):
             return TFABApplication.GENERAL_MENU
 
         @staticmethod
-        async def show_todays_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        async def show_todays_info_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             """
             Handle the admin->matchdays->show info menu.
             """
