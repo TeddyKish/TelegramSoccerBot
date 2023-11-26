@@ -241,7 +241,7 @@ class TFABDBHandler(object):
             rankings_dictionary = ranker[self.RANKERS_USER_RANKINGS_KEY]
 
             if player_name in rankings_dictionary:
-                rating_list.append(int(rankings_dictionary[player_name]))
+                rating_list.append(float(rankings_dictionary[player_name]))
 
         return sum(rating_list) / len(rating_list) if rating_list else 0
 

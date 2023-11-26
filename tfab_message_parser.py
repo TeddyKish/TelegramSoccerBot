@@ -126,11 +126,11 @@ class MessageParser:
             message += "\nלהלן הקבוצות שנוצרו עבור המשחק:\n"
             i = 1
             for team in teams:
-                message += "קבוצה {0}: (ציון הקבוצה - {1})\n".format(i, team[TFABDBHandler.MATCHDAYS_SPECIFIC_TEAM_RATING_KEY])
+                message += "קבוצה {0}: (ציון הקבוצה - {1:.2f})\n".format(i, team[TFABDBHandler.MATCHDAYS_SPECIFIC_TEAM_RATING_KEY])
                 j = 1
                 players = team[TFABDBHandler.MATCHDAYS_SPECIFIC_TEAM_ROSTER_KEY]
                 for player in players:
-                    message += "{0}.{1} - {2}\n".format(j, player[TFABDBHandler.PLAYERS_NAME_KEY],
+                    message += "{0}.{1} - {2:.2f}\n".format(j, player[TFABDBHandler.PLAYERS_NAME_KEY],
                                                       player[TFABDBHandler.MATCHDAYS_SPECIFIC_TEAM_PLAYER_RATING_KEY])
                     j = j + 1
                 message += "\n\n"
@@ -155,10 +155,8 @@ class MessageParser:
         else:
             ranking_message = "אלו השחקנים שדירגת:\n"
 
-            i = 0
             for player, ranking in user_rankings.items():
-                i = i + 1
-                ranking_message += "{0}.{1} = {2}\n".format(i, player, ranking)
+                ranking_message += "{0} = {1}\n".format(player, ranking)
 
         if len(unranked_players) == 0:
             ranking_message += "\nדירגת את כל השחקנים האפשריים."
@@ -180,7 +178,7 @@ class MessageParser:
         :return: A dictionary with rankings for each player.
         Every item in the dictionary is in the form of {<PlayerName>: <NumericalRankingValue>}
         """
-        pattern = re.compile(r"(^(\w+\s)+)=\s?(([1-9])|10|(\d\.\d))$")
+        pattern = re.compile(r"(^([א-ת \-`'\u05f3\u2019]+\s)+)=\s?(([1-9])|10|(\d\.\d))$")
         result_dict = {}
 
         for line in message.split("\n"):

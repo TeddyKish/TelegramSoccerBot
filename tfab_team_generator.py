@@ -21,6 +21,7 @@ class TeamGenerator(object):
             :param players:
             :return:
             """
+            random.shuffle(players)
             for i in range(3):
                 index = 0
                 for player in players:
@@ -29,6 +30,21 @@ class TeamGenerator(object):
                         break
                     index += 1
                 players.pop(index)
+
+        def get_best_remaining_player(players):
+            random.shuffle(players)
+            best_rating = 0
+            index = 0
+
+            i = 0
+            for player in players:
+                curr_rating = player[TFABDBHandler.MATCHDAYS_SPECIFIC_TEAM_PLAYER_RATING_KEY]
+                if curr_rating > best_rating:
+                    best_rating = curr_rating
+                    index = i
+                i += 1
+
+            return players.pop(index)
 
         result_list = []
         for i in range(3):
@@ -39,11 +55,10 @@ class TeamGenerator(object):
         random.shuffle(player_dicts_list)
 
         i = 0
-        for player in player_dicts_list:
-            result_list[i][TFABDBHandler.MATCHDAYS_SPECIFIC_TEAM_ROSTER_KEY].append(player)
-            result_list[i][TFABDBHandler.MATCHDAYS_SPECIFIC_TEAM_RATING_KEY] = \
-                result_list[i][TFABDBHandler.MATCHDAYS_SPECIFIC_TEAM_RATING_KEY] \
-                + player[TFABDBHandler.MATCHDAYS_SPECIFIC_TEAM_PLAYER_RATING_KEY]
+        while player_dicts_list:
+            best_player = get_best_remaining_player(player_dicts_list)
+            result_list[i][TFABDBHandler.MATCHDAYS_SPECIFIC_TEAM_ROSTER_KEY].append(best_player)
+            result_list[i][TFABDBHandler.MATCHDAYS_SPECIFIC_TEAM_RATING_KEY] += best_player[TFABDBHandler.MATCHDAYS_SPECIFIC_TEAM_PLAYER_RATING_KEY]
             i = (i + 1) % 3
 
         return result_list

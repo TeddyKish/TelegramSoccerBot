@@ -34,4 +34,6 @@ The prototype above will be implemented to completion.
     Some niche features, like:
     * Players that want to be put together in the same team
     * Additional features for player characteristics
+    * A return button from each menu backwards
+    * Remove goalies from the ranked list
     * TBA

@@ -234,8 +234,18 @@ class InputHandlers(object):
                     if update.message.text:
                         if update.message.text == \
                             TFABApplication.get_instance().configuration.BOTITO_SECRET_ADMINS_PASSWORD:
-                            TFABApplication.get_instance().db.insert_admin\
+                            if update.effective_user.first_name and update.effective_user.last_name:
+                                TFABApplication.get_instance().db.insert_admin\
                     (update.effective_user.first_name + " "+ update.effective_user.last_name, update.effective_user.id)
+                            elif update.effective_user.first_name:
+                                TFABApplication.get_instance().db.insert_admin \
+                                    (update.effective_user.first_name,
+                                     update.effective_user.id)
+                            else:
+                                await context.bot.send_message(chat_id=update.effective_chat.id,
+                                                               text="השם שלך בטלגרם מוזר, תקן אותו אחי ואז תחזור")
+                                context.user_data[UserDataIndices.CONTEXTUAL_LAST_OPERATION_STATUS] = False
+                                return await InputHandlers.entrypoint_handler(update, context)
                             context.user_data[UserDataIndices.CONTEXTUAL_LAST_OPERATION_STATUS] = True
                             return await InputHandlers.entrypoint_handler(update, context)
                 # If this is not just a regular text message, fail
@@ -260,9 +270,19 @@ class InputHandlers(object):
                 if update.message.text:
                     if update.message.text == \
                             TFABApplication.get_instance().configuration.BOTITO_SECRET_RANKERS_PASSWORD:
-                        TFABApplication.get_instance().db.insert_ranker \
-                            (update.effective_user.first_name + " " + update.effective_user.last_name,
-                             update.effective_user.id)
+                        if update.effective_user.first_name and update.effective_user.last_name:
+                            TFABApplication.get_instance().db.insert_ranker \
+                                (update.effective_user.first_name + " " + update.effective_user.last_name,
+                                 update.effective_user.id)
+                        elif update.effective_user.first_name:
+                            TFABApplication.get_instance().db.insert_ranker \
+                                (update.effective_user.first_name,
+                                 update.effective_user.id)
+                        else:
+                            await context.bot.send_message(chat_id=update.effective_chat.id,
+                                                           text="השם שלך בטלגרם מוזר, תקן אותו אחי ואז תחזור")
+                            context.user_data[UserDataIndices.CONTEXTUAL_LAST_OPERATION_STATUS] = False
+                            return await InputHandlers.entrypoint_handler(update, context)
                         context.user_data[UserDataIndices.CONTEXTUAL_LAST_OPERATION_STATUS] = True
                         return await InputHandlers.entrypoint_handler(update, context)
             # If this is not just a regular text message, fail
