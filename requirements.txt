@@ -6,3 +6,4 @@ enum34==1.1.8
 python-telegram-bot
 pytest
 datetime
+pulp

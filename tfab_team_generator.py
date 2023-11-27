@@ -1,13 +1,12 @@
 import random
 import tfab_consts
 from tfab_database_handler import TFABDBHandler
+from pulp import LpProblem, LpVariable, LpMinimize, lpSum, value
 
 class TeamGenerator(object):
     """
     Responsible for generating the most balanced teams out of a player list containing characteristics and ratings.
     """
-
-
     @staticmethod
     def generate_teams(player_dicts_list):
         """
@@ -22,7 +21,7 @@ class TeamGenerator(object):
             :return:
             """
             random.shuffle(players)
-            for i in range(3):
+            for i in range(len(teams)):
                 index = 0
                 for player in players:
                     if player[TFABDBHandler.PLAYERS_CHARACTERISTICS_KEY] == tfab_consts.PlayerCharacteristics["GOALKEEPER"]:
@@ -31,34 +30,57 @@ class TeamGenerator(object):
                     index += 1
                 players.pop(index)
 
-        def get_best_remaining_player(players):
-            random.shuffle(players)
-            best_rating = 0
-            index = 0
-
-            i = 0
-            for player in players:
-                curr_rating = player[TFABDBHandler.MATCHDAYS_SPECIFIC_TEAM_PLAYER_RATING_KEY]
-                if curr_rating > best_rating:
-                    best_rating = curr_rating
-                    index = i
-                i += 1
-
-            return players.pop(index)
-
         result_list = []
-        for i in range(3):
+        amount_of_teams = 3
+
+        for i in range(amount_of_teams):
             result_list.append({TFABDBHandler.MATCHDAYS_SPECIFIC_TEAM_ROSTER_KEY: [],
                                 TFABDBHandler.MATCHDAYS_SPECIFIC_TEAM_RATING_KEY: 0})
 
+        #TODO: This currently only works when there are enough goalkeepers!
         distribute_goalkeepers(result_list, player_dicts_list)
         random.shuffle(player_dicts_list)
 
-        i = 0
-        while player_dicts_list:
-            best_player = get_best_remaining_player(player_dicts_list)
-            result_list[i][TFABDBHandler.MATCHDAYS_SPECIFIC_TEAM_ROSTER_KEY].append(best_player)
-            result_list[i][TFABDBHandler.MATCHDAYS_SPECIFIC_TEAM_RATING_KEY] += best_player[TFABDBHandler.MATCHDAYS_SPECIFIC_TEAM_PLAYER_RATING_KEY]
-            i = (i + 1) % 3
+        num_members = len(player_dicts_list)
+
+        # Create the LP problem
+        prob = LpProblem("GroupPartitioning", LpMinimize)
+
+        # Creating a variable for each player-team combination.
+        # Our goal is to later create a restriction that enforces that:
+        # X_i_j equals 1 if player <I> belongs to group <J>
+        x = {(i, j): LpVariable(f"x_{i}_{j}", 0, 1, "Binary") for i in range(num_members) for j in range(amount_of_teams)}
+
+        # Constraints: each member is assigned to exactly one group
+        for i in range(num_members):
+            prob += lpSum(x[i, j] for j in range(amount_of_teams)) == 1, f"AssignOnce_{i}"
+
+        # Constraints: each group has the same amount of team members
+        for j in range(amount_of_teams):
+            prob += lpSum(x[i, j] for i in range(num_members)) == (num_members // amount_of_teams), f"GroupSize_{j}"
+
+        # Define m as the weakest team, and M as the strongest team
+        m = LpVariable("m", 0, 100)
+        M = LpVariable("M", 0, 100)
+
+        for j in range(amount_of_teams):
+            prob += m <= lpSum(x[i, j] * player_dicts_list[i][TFABDBHandler.MATCHDAYS_SPECIFIC_TEAM_PLAYER_RATING_KEY]
+                               for i in range(num_members))
+
+        for j in range(amount_of_teams):
+            prob += M >= lpSum(x[i, j] * player_dicts_list[i][TFABDBHandler.MATCHDAYS_SPECIFIC_TEAM_PLAYER_RATING_KEY]
+                               for i in range(num_members))
+
+        # Objective: minimize the difference between the highest-ranked team and the lowest-ranked team
+        prob += M - m, "Objective"
+
+        # Solve the LP problem
+        prob.solve()
+
+        for i in range(num_members):
+            for j in range(amount_of_teams):
+                if value(x[i, j]) == 1:
+                    result_list[j][TFABDBHandler.MATCHDAYS_SPECIFIC_TEAM_ROSTER_KEY].append(player_dicts_list[i])
+                    result_list[j][TFABDBHandler.MATCHDAYS_SPECIFIC_TEAM_RATING_KEY] += player_dicts_list[i][TFABDBHandler.MATCHDAYS_SPECIFIC_TEAM_PLAYER_RATING_KEY]
 
         return result_list

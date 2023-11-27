@@ -512,6 +512,7 @@ class AdminMenuHandlers(object):
                     db.PLAYERS_CHARACTERISTICS_KEY: db.get_player_characteristic(player),
                     db.MATCHDAYS_SPECIFIC_TEAM_PLAYER_RATING_KEY: db.get_player_average_rating(player)})
 
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="מחשב..")
             teams_dict = tfab_team_generator.TeamGenerator.generate_teams(player_dicts_list)
             if not db.insert_teams_to_matchday(today_date, teams_dict):
                 # Impossible because we already checked that there is a matchday occuring today
@@ -556,6 +557,12 @@ class AdminMenuHandlers(object):
                     return await InputHandlers.entrypoint_handler(update, context)
                 elif result_dictionary[TFABApplication.get_instance().db.MATCHDAYS_ORIGINAL_MESSAGE_KEY] is None:
                     return await InputHandlers.illegal_situation_handler(update, context)
+
+                today_date = datetime.now().strftime(TFABApplication.get_instance().db.MATCHDAYS_DATE_FORMAT)
+                if today_date != result_dictionary[TFABApplication.get_instance().db.MATCHDAYS_DATE_KEY]:
+                    context.user_data[UserDataIndices.CONTEXTUAL_LAST_OPERATION_STATUS] = False
+                    await context.bot.send_message(chat_id=update.effective_chat.id, text="ניתן לקבוע רשימה רק ביום המשחק")
+                    return await InputHandlers.entrypoint_handler(update, context)
 
                 # Insert DB information
                 TFABApplication.get_instance().db.insert_matchday(
