@@ -37,6 +37,7 @@ second_dict = {"עידן": "5"}
 
 data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../tfab_data/data")
 matchday_messages = []
+matchday_player_appearances = {}
 
 for filename in os.listdir(data_dir):
     file_path = os.path.join(data_dir, filename)
@@ -77,3 +78,14 @@ class TestMessageParsing:
 
         pattern = re.compile(r"\d{2}-\d{2}-\d{4}")
         assert pattern.search(result_dict[TFABDBHandler.MATCHDAYS_DATE_KEY].strip())
+
+        for player in result_dict[TFABDBHandler.MATCHDAYS_ROSTER_KEY]:
+            if player not in matchday_player_appearances.keys():
+                matchday_player_appearances[player] = 1
+            else:
+                matchday_player_appearances[player] += 1
+
+        sorted_appearances = dict(sorted(matchday_player_appearances.items(), key=lambda item: item[1], reverse=True))
+
+        for player, appearances in sorted_appearances.items():
+            print(f"{player} -> {appearances}")

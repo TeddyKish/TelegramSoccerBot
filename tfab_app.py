@@ -513,7 +513,7 @@ class AdminMenuHandlers(object):
                     db.MATCHDAYS_SPECIFIC_TEAM_PLAYER_RATING_KEY: db.get_player_average_rating(player)})
 
             await context.bot.send_message(chat_id=update.effective_chat.id, text="מחשב..")
-            teams_dict = tfab_team_generator.TeamGenerator.generate_teams(player_dicts_list)
+            teams_dict = tfab_team_generator.TeamGenerator.generate_teams(player_dicts_list, True)
             if not db.insert_teams_to_matchday(today_date, teams_dict):
                 # Impossible because we already checked that there is a matchday occuring today
                 await InputHandlers.illegal_situation_handler(update, context)

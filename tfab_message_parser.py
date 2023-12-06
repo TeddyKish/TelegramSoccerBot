@@ -1,5 +1,7 @@
 import re
 from tfab_database_handler import TFABDBHandler
+import tfab_app
+import tfab_consts
 from datetime import datetime
 
 class MessageParser:
@@ -113,12 +115,13 @@ class MessageParser:
         location = matchday_dict[TFABDBHandler.MATCHDAYS_LOCATION_KEY]
         player_list = matchday_dict[TFABDBHandler.MATCHDAYS_ROSTER_KEY]
         teams = matchday_dict[TFABDBHandler.MATCHDAYS_TEAMS_KEY]
+        db = tfab_app.TFABApplication.get_instance().db
 
         if date:
             message += "תאריך: {0}\n".format(date)
         if location:
             message += "מיקום: {0}\n".format(location)
-        if player_list:
+        if player_list and not teams:
             message += "----------------------------------------\n"
             message += MessageParser.stringify_player_list(player_list, with_characteristic=False)
             message += "\n----------------------------------------\n"
@@ -130,8 +133,9 @@ class MessageParser:
                 j = 1
                 players = team[TFABDBHandler.MATCHDAYS_SPECIFIC_TEAM_ROSTER_KEY]
                 for player in players:
-                    message += "{0}.{1} - {2:.2f}\n".format(j, player[TFABDBHandler.PLAYERS_NAME_KEY],
-                                                      player[TFABDBHandler.MATCHDAYS_SPECIFIC_TEAM_PLAYER_RATING_KEY])
+                    message += "{0}.{1} - {2:.2f} ({3})\n".format(j, player[TFABDBHandler.PLAYERS_NAME_KEY],
+                                                      player[TFABDBHandler.MATCHDAYS_SPECIFIC_TEAM_PLAYER_RATING_KEY],
+                                                    tfab_consts.PlayerPositionToHebrew[db.get_player_characteristic(player[TFABDBHandler.PLAYERS_NAME_KEY])])
                     j = j + 1
                 message += "\n\n"
                 i = i + 1
