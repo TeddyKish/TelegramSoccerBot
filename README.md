@@ -31,6 +31,7 @@ The prototype above will be implemented to completion.
 
 ## Unreleased: Version 1.1:
 - [X] Remove goalies from the ranked list
+- [ ] Add the option to rank a specific player
 - [ ] Reorganize the framework
 - [ ] Enforce player-coupling/decoupling requirements
 - [ ] Enforce removal of faulty rankings

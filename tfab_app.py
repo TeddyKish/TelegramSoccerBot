@@ -26,6 +26,7 @@ class TFABApplication(object):
     GENERAL_MENU, \
         RANKER_MENU, \
             RANKER_MENU_RANK_EVERYONE, \
+            RANKER_MENU_RANK_SPECIFIC_PLAYER, \
             RANKER_MENU_SHOW_MY_RANKINGS, \
         ADMIN_MENU, \
             ADMIN_MENU_MATCHDAYS, \
@@ -37,7 +38,7 @@ class TFABApplication(object):
                 PLAYERS_MENU_ADD, \
                 PLAYERS_MENU_SHOW, \
                 PLAYERS_MENU_EDIT, \
-                PLAYERS_MENU_DELETE = range(18)
+                PLAYERS_MENU_DELETE = range(19)
 
     @staticmethod
     def get_instance(tfab_config=None, tfab_db=None):
@@ -74,6 +75,7 @@ class TFABApplication(object):
                 ],
                 TFABApplication.RANKER_MENU: [
                     CallbackQueryHandler(RankersMenuHandlers.rank_everyone_handler, pattern=str(TFABApplication.RANKER_MENU_RANK_EVERYONE)),
+                    CallbackQueryHandler(RankersMenuHandlers.rank_everyone_handler, pattern=str(TFABApplication.RANKER_MENU_RANK_SPECIFIC_PLAYER)),
                     CallbackQueryHandler(RankersMenuHandlers.show_my_rankings_handler, pattern=str(TFABApplication.RANKER_MENU_SHOW_MY_RANKINGS)),
                 ],
                 TFABApplication.ADMIN_MENU: [
@@ -354,9 +356,9 @@ class RankersMenuHandlers(object):
 
         text = """להלן פעולות הדירוגים האפשריות:"""
 
-        #TODO: add "rank specific player"
         keyboard = [
-            [InlineKeyboardButton("דרג שחקנים", callback_data=str(TFABApplication.RANKER_MENU_RANK_EVERYONE))],
+            [InlineKeyboardButton("דרג שחקן ספציפי", callback_data=str(TFABApplication.RANKER_MENU_RANK_SPECIFIC_PLAYER))],
+            [InlineKeyboardButton("דרג את כלל השחקנים", callback_data=str(TFABApplication.RANKER_MENU_RANK_EVERYONE))],
             [InlineKeyboardButton("הצג דירוגים שלי", callback_data=str(TFABApplication.RANKER_MENU_SHOW_MY_RANKINGS))]
         ]
 
@@ -377,11 +379,15 @@ class RankersMenuHandlers(object):
         elif update_type == HandlerUtils.UpdateType.CALLBACK_QUERY:
             await update.callback_query.answer()
 
-            rankings_template = RankersMenuHandlers.get_rankings_template(update, context)
+            if update.callback_query.data == str(TFABApplication.RANKER_MENU_RANK_SPECIFIC_PLAYER):
+                await context.bot.send_message(chat_id=update.effective_chat.id,
+                                               text="""שלח דירוג עבור שחקן ספציפי (למשל: רונאלדו = 9)""")
+            elif update.callback_query.data == str(TFABApplication.RANKER_MENU_RANK_EVERYONE):
+                rankings_template = RankersMenuHandlers.get_rankings_template(update, context)
 
-            await context.bot.send_message(chat_id=update.effective_chat.id, text=rankings_template)
-            await context.bot.send_message(chat_id=update.effective_chat.id,
-                                           text="""שלחתי לך תבנית לדירוגים, תמלא אותה ושלח לי""")
+                await context.bot.send_message(chat_id=update.effective_chat.id, text=rankings_template)
+                await context.bot.send_message(chat_id=update.effective_chat.id,
+                                               text="""שלחתי לך תבנית לדירוגים, תמלא אותה ושלח לי""")
             context.user_data[UserDataIndices.CURRENT_STATE] = TFABApplication.RANKER_MENU_RANK_EVERYONE
             return TFABApplication.GOT_INPUT
         elif update_type == HandlerUtils.UpdateType.TEXTUAL_MESSAGE:
