@@ -125,7 +125,7 @@ class TFABDBHandler(object):
 
         return result
 
-    def get_player_list(self):
+    def get_player_list(self, hebrew_characteristics=True):
         """
         :return: A cursor that contains information about all the available players in the DB.
         """
@@ -139,7 +139,9 @@ class TFABDBHandler(object):
         player_list = []
         for player in all_players_cursor:
             player_list.append((player[self.PLAYERS_NAME_KEY],
-                                tfab_consts.PlayerPositionToHebrew[player[self.PLAYERS_CHARACTERISTICS_KEY]]))
+                                tfab_consts.PlayerPositionToHebrew[player[self.PLAYERS_CHARACTERISTICS_KEY]]
+                                if hebrew_characteristics
+                                else player[self.PLAYERS_CHARACTERISTICS_KEY]))
         return player_list
 
     def get_user_rankings(self, user_id):
@@ -227,6 +229,9 @@ class TFABDBHandler(object):
         :param player_name: The player's name.
         :return: The average rating.
         """
+        # This makes sure that a GK is always rated zero (including past-ranked "field" players that converted to GKs)
+        if self.get_player_characteristic(player_name) == tfab_consts.PlayerCharacteristics["GOALKEEPER"]:
+            return 0
 
         rankers_collection = self.__get_collection(self.RANKERS_COLLECTION_NAME)
 

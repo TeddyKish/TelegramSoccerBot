@@ -331,12 +331,14 @@ class RankersMenuHandlers(object):
 
     @staticmethod
     def get_rankings_template(update, context):
-        player_names = [name for name, _ in TFABApplication.get_instance().db.get_player_list()]
+        players = [name
+                   for name, role in TFABApplication.get_instance().db.get_player_list(hebrew_characteristics=False)
+                   if role != tfab_consts.PlayerCharacteristics["GOALKEEPER"]]
         user_rankings = TFABApplication.get_instance().db.get_user_rankings(update.effective_user.id)
         if user_rankings is None:
             raise tfab_exception.TFABException("Logged-in user doesn't have rankings!")
 
-        return tfab_message_parser.MessageParser.generate_rankings_template(player_names, user_rankings)
+        return tfab_message_parser.MessageParser.generate_rankings_template(players, user_rankings)
 
     @staticmethod
     async def rankers_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -352,6 +354,7 @@ class RankersMenuHandlers(object):
 
         text = """להלן פעולות הדירוגים האפשריות:"""
 
+        #TODO: add "rank specific player"
         keyboard = [
             [InlineKeyboardButton("דרג שחקנים", callback_data=str(TFABApplication.RANKER_MENU_RANK_EVERYONE))],
             [InlineKeyboardButton("הצג דירוגים שלי", callback_data=str(TFABApplication.RANKER_MENU_SHOW_MY_RANKINGS))]
@@ -493,6 +496,7 @@ class AdminMenuHandlers(object):
             todays_matchday = db.get_matchday(today_date)
             todays_player_list = todays_matchday[db.MATCHDAYS_ROSTER_KEY]
 
+            #TODO : move this to the "set list" function
             all_players_exist_in_db = True
             for player in todays_player_list:
                 if not db.check_player_existence(player):

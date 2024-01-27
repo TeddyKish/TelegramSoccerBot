@@ -30,9 +30,10 @@ Currently, expects to receive a YML configuration located at `./tfab_data/tfab_c
 The prototype above will be implemented to completion.
 
 ## Unreleased: Version 1.1:
-* Enforce player-coupling/decoupling requirements
-* Remove goalies from the ranked list
-* Reorganize the framework
+- [X] Remove goalies from the ranked list
+- [ ] Reorganize the framework
+- [ ] Enforce player-coupling/decoupling requirements
+- [ ] Enforce removal of faulty rankings
 
 ## Version 2.0
     Some niche features, like:
