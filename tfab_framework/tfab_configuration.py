@@ -1,4 +1,4 @@
-import tfab_exception
+from tfab_framework.tfab_exception import TFABConfigurationError
 import yaml
 from schema import Schema, And
 
@@ -19,9 +19,10 @@ class TFABConfiguration(object):
                 self.__schema__ = Schema(
                     {
                         'TELEGRAM_BOT_TOKEN': And(str),
-                        'MONGODB_PORT' : And(int),
-                        'BOTITO_SECRET_RANKERS_PASSWORD' : And(str),
-                        'BOTITO_SECRET_ADMINS_PASSWORD'  : And(str)
+                        'MONGODB_PORT': And(int),
+                        'DB_NAME': And(str),
+                        'BOTITO_SECRET_RANKERS_PASSWORD': And(str),
+                        'BOTITO_SECRET_ADMINS_PASSWORD': And(str)
                     }
                 )
  
@@ -31,4 +32,4 @@ class TFABConfiguration(object):
             for key, value in self.__configuration_dictionary__.items():
                 setattr(self, key, value)
         except Exception as e:
-            raise tfab_exception.ConfigurationError("TFAB Configuration Error occured: " + str(e))
+            raise TFABConfigurationError("TFAB Configuration Error occurred: " + str(e))

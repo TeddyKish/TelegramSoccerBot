@@ -31,10 +31,11 @@ The prototype above will be implemented to completion.
 
 ## Unreleased: Version 1.1:
 - [X] Remove goalies from the ranked list
-- [ ] Add the option to rank a specific player
-- [ ] Reorganize the framework
+- [X] Add the option to rank a specific player
+- [X] Reorganize the framework
 - [ ] Enforce player-coupling/decoupling requirements
 - [ ] Enforce removal of faulty rankings
+- [ ] Add custom total-ranking calculation of teams with no goalkeeper
 
 ## Version 2.0
     Some niche features, like:

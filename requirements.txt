@@ -2,7 +2,6 @@ pyyaml
 schema
 pymongo
 asyncio
-enum34==1.1.8
 python-telegram-bot
 pytest
 datetime

@@ -1,14 +1,12 @@
 import re
-from tfab_database_handler import TFABDBHandler
-import tfab_app
-import tfab_consts
+from tfab_framework.tfab_consts import Consts as TConsts
+from tfab_framework.tfab_database_handler import TFABDBHandler
 from datetime import datetime
 
 class MessageParser:
     """
     Intended to parse user messages, to extract the interesting fields out of them.
     """
-
 
     @staticmethod
     def _get_date_value(message):
@@ -28,7 +26,7 @@ class MessageParser:
                 if len(year) == 2:
                     year = "20" + year
 
-                return datetime(int(year), int(month), int(day)).strftime(TFABDBHandler.MATCHDAYS_DATE_FORMAT)
+                return datetime(int(year), int(month), int(day)).strftime(TConsts.MATCHDAYS_DATE_FORMAT)
 
         return None
 
@@ -57,6 +55,9 @@ class MessageParser:
         name_characters_blacklist = r"[^א-ת \-`'\u05f3\u2019]"
         players = []
 
+        # Used to signify the start of the player list.
+        # We assume that the player list is consecutive - that is, all players appear in one after the other.
+        # Once we encounter a line that is not of the correct form - we can infer that the player list has ended.
         first_part_started = False
 
         for line in message.split("\n"):
@@ -82,16 +83,14 @@ class MessageParser:
         if with_characteristic:
             for player_name, characteristic in player_list:
                 all_players_message += "{0}.{1} ({2})\n".format(i, player_name, characteristic)
-                i = i + 1
+                i += 1
         else:
             for player_name in player_list:
                 all_players_message += "{0}.{1}\n".format(i, player_name)
-                i = i + 1
+                i += 1
 
-        if all_players_message != "":
-            all_players_message = all_players_message[:-1]  # Removes the last \n in the string
-
-        return all_players_message
+        # Removes the last "\n" in the string if the string isn't trivial
+        return all_players_message[:-1] if all_players_message != "" else ""
 
     @staticmethod
     def parse_matchday_message(message):
@@ -100,10 +99,10 @@ class MessageParser:
         :param message:
         :return: A dictionary that contains the game date, roster, location and the original message.
         """
-        return {TFABDBHandler.MATCHDAYS_DATE_KEY: MessageParser._get_date_value(message),
-                TFABDBHandler.MATCHDAYS_LOCATION_KEY: MessageParser._get_placement_value(message),
-                TFABDBHandler.MATCHDAYS_ORIGINAL_MESSAGE_KEY: message,
-                TFABDBHandler.MATCHDAYS_ROSTER_KEY: MessageParser._get_roster_value(message)}
+        return {TConsts.MATCHDAYS_DATE_KEY: MessageParser._get_date_value(message),
+                TConsts.MATCHDAYS_LOCATION_KEY: MessageParser._get_placement_value(message),
+                TConsts.MATCHDAYS_ORIGINAL_MESSAGE_KEY: message,
+                TConsts.MATCHDAYS_ROSTER_KEY: MessageParser._get_roster_value(message)}
 
     @staticmethod
     def generate_matchday_message(matchday_dict):
@@ -111,11 +110,11 @@ class MessageParser:
         :return: A nicely formatted message, describing the information within <matchday_dict>
         """
         message = "הרשימה היומית כפי שנקלטה בבוטיטו:\n"
-        date = matchday_dict[TFABDBHandler.MATCHDAYS_DATE_KEY]
-        location = matchday_dict[TFABDBHandler.MATCHDAYS_LOCATION_KEY]
-        player_list = matchday_dict[TFABDBHandler.MATCHDAYS_ROSTER_KEY]
-        teams = matchday_dict[TFABDBHandler.MATCHDAYS_TEAMS_KEY]
-        db = tfab_app.TFABApplication.get_instance().db
+        date = matchday_dict[TConsts.MATCHDAYS_DATE_KEY]
+        location = matchday_dict[TConsts.MATCHDAYS_LOCATION_KEY]
+        player_list = matchday_dict[TConsts.MATCHDAYS_ROSTER_KEY]
+        teams = matchday_dict[TConsts.MATCHDAYS_TEAMS_KEY]
+        db = TFABDBHandler.get_instance()
 
         if date:
             message += "תאריך: {0}\n".format(date)
@@ -127,20 +126,16 @@ class MessageParser:
             message += "\n----------------------------------------\n"
         if teams:
             message += "\nלהלן הקבוצות שנוצרו עבור המשחק:\n"
-            i = 1
-            for team in teams:
-                message += "קבוצה {0}: (ציון הקבוצה - {1:.2f})\n".format(i, team[TFABDBHandler.MATCHDAYS_SPECIFIC_TEAM_RATING_KEY])
-                j = 1
-                players = team[TFABDBHandler.MATCHDAYS_SPECIFIC_TEAM_ROSTER_KEY]
-                for player in players:
-                    message += "{0}.{1} - {2:.2f} ({3})\n".format(j, player[TFABDBHandler.PLAYERS_NAME_KEY],
-                                                      player[TFABDBHandler.MATCHDAYS_SPECIFIC_TEAM_PLAYER_RATING_KEY],
-                                                    tfab_consts.PlayerPositionToHebrew[db.get_player_characteristic(player[TFABDBHandler.PLAYERS_NAME_KEY])])
-                    j = j + 1
+            for team_index, team in enumerate(teams):
+                message += "קבוצה {0}: (ציון הקבוצה - {1:.2f})\n".format(team_index + 1, team[TConsts.MATCHDAYS_SPECIFIC_TEAM_RATING_KEY]) #TODO: calculate correct rating here
+                players = team[TConsts.MATCHDAYS_SPECIFIC_TEAM_ROSTER_KEY]
+                for player_index, player in enumerate(players):
+                    message += "{0}.{1} - {2:.2f} ({3})\n".format(player_index + 1, player[TConsts.PLAYERS_NAME_KEY],
+                                                      player[TConsts.MATCHDAYS_SPECIFIC_TEAM_PLAYER_RATING_KEY],
+                                                    TConsts.PlayerPositionToHebrew[db.get_player_characteristic(player[TConsts.PLAYERS_NAME_KEY])])
                 message += "\n\n"
-                i = i + 1
 
-            message += "שיהיה בהצלחה!\n"
+            message += "שיהיה בהצלחה!"
 
         return message
 
@@ -169,10 +164,8 @@ class MessageParser:
             for player in unranked_players:
                 ranking_message += "{0} = \n".format(player)
 
-        if ranking_message != "":
-            ranking_message = ranking_message[:-1]
-
-        return ranking_message
+        # Get rid of the last "\n"
+        return ranking_message[:-1] if ranking_message != "" else ""
 
     @staticmethod
     def parse_rankings_message(message):

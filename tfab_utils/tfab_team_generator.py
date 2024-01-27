@@ -1,7 +1,5 @@
-import math
 import random
-import tfab_consts
-from tfab_database_handler import TFABDBHandler
+from tfab_framework.tfab_consts import Consts as TConsts
 from pulp import LpProblem, LpVariable, LpMinimize, lpSum, value, PULP_CBC_CMD
 
 class TeamGenerator(object):
@@ -23,7 +21,7 @@ class TeamGenerator(object):
             """
             ind = 0
             for player in player_list:
-                if player[TFABDBHandler.PLAYERS_NAME_KEY] == requested_player[TFABDBHandler.PLAYERS_NAME_KEY]:
+                if player[TConsts.PLAYERS_NAME_KEY] == requested_player[TConsts.PLAYERS_NAME_KEY]:
                     return ind // 3
                 ind += 1
 
@@ -32,7 +30,7 @@ class TeamGenerator(object):
         def get_gk_amount(player_list):
             gks = 0
             for player in player_list:
-                if player[TFABDBHandler.PLAYERS_CHARACTERISTICS_KEY] == tfab_consts.PlayerCharacteristics["GOALKEEPER"]:
+                if player[TConsts.PLAYERS_CHARACTERISTICS_KEY] == TConsts.PlayerCharacteristics["GOALKEEPER"]:
                     gks += 1
 
             return gks
@@ -41,12 +39,12 @@ class TeamGenerator(object):
         amount_of_teams = 3
 
         for i in range(amount_of_teams):
-            result_list.append({TFABDBHandler.MATCHDAYS_SPECIFIC_TEAM_ROSTER_KEY: [],
-                                TFABDBHandler.MATCHDAYS_SPECIFIC_TEAM_RATING_KEY: 0})
+            result_list.append({TConsts.MATCHDAYS_SPECIFIC_TEAM_ROSTER_KEY: [],
+                                TConsts.MATCHDAYS_SPECIFIC_TEAM_RATING_KEY: 0})
 
         # Sort the list by the player ratings
         random.shuffle(player_dicts_list)
-        sorted_players = sorted(player_dicts_list, key=lambda player: player[TFABDBHandler.MATCHDAYS_SPECIFIC_TEAM_PLAYER_RATING_KEY], reverse=True)
+        sorted_players = sorted(player_dicts_list, key=lambda player: player[TConsts.MATCHDAYS_SPECIFIC_TEAM_PLAYER_RATING_KEY], reverse=True)
         num_members = len(sorted_players)
 
         # Create the LP problem
@@ -81,9 +79,9 @@ class TeamGenerator(object):
         M = LpVariable("M", 0, 100)
 
         for j in range(amount_of_teams):
-            prob += m <= lpSum(x[i, j] * sorted_players[i][TFABDBHandler.MATCHDAYS_SPECIFIC_TEAM_PLAYER_RATING_KEY]
+            prob += m <= lpSum(x[i, j] * sorted_players[i][TConsts.MATCHDAYS_SPECIFIC_TEAM_PLAYER_RATING_KEY]
                                for i in range(num_members))
-            prob += M >= lpSum(x[i, j] * sorted_players[i][TFABDBHandler.MATCHDAYS_SPECIFIC_TEAM_PLAYER_RATING_KEY]
+            prob += M >= lpSum(x[i, j] * sorted_players[i][TConsts.MATCHDAYS_SPECIFIC_TEAM_PLAYER_RATING_KEY]
                                for i in range(num_members))
 
         # Allow for variations by limiting the difference between the highest-ranked team and the lowest-ranked team
@@ -92,7 +90,7 @@ class TeamGenerator(object):
         if using_ranks:
             # Distribute goalkeepers
             for j in range(amount_of_teams):
-                prob += lpSum(x[i, j] * (sorted_players[i][TFABDBHandler.PLAYERS_CHARACTERISTICS_KEY] == tfab_consts.PlayerCharacteristics["GOALKEEPER"]) for i in range(num_members)) <= 1
+                prob += lpSum(x[i, j] * (sorted_players[i][TConsts.PLAYERS_CHARACTERISTICS_KEY] == TConsts.PlayerCharacteristics["GOALKEEPER"]) for i in range(num_members)) <= 1
 
             # Make sure each team contains a single player from each tier
             for j in range(amount_of_teams):
@@ -114,29 +112,29 @@ class TeamGenerator(object):
 
             for j in range(amount_of_teams):
                 prob += role_min <= lpSum(
-                    x[i, j] * (sorted_players[i][TFABDBHandler.PLAYERS_CHARACTERISTICS_KEY] in
-                               [tfab_consts.PlayerCharacteristics["OFFENSIVE"], tfab_consts.PlayerCharacteristics["DEFENSIVE"]])
+                    x[i, j] * (sorted_players[i][TConsts.PLAYERS_CHARACTERISTICS_KEY] in
+                               [TConsts.PlayerCharacteristics["OFFENSIVE"], TConsts.PlayerCharacteristics["DEFENSIVE"]])
                     for i in range(num_members))
                 prob += role_max >= lpSum(
-                    x[i, j] * (sorted_players[i][TFABDBHandler.PLAYERS_CHARACTERISTICS_KEY] in
-                               [tfab_consts.PlayerCharacteristics["OFFENSIVE"],
-                                tfab_consts.PlayerCharacteristics["DEFENSIVE"]])
+                    x[i, j] * (sorted_players[i][TConsts.PLAYERS_CHARACTERISTICS_KEY] in
+                               [TConsts.PlayerCharacteristics["OFFENSIVE"],
+                                TConsts.PlayerCharacteristics["DEFENSIVE"]])
                     for i in range(num_members))
                 prob += att_min <= lpSum(
-                    x[i, j] * (sorted_players[i][TFABDBHandler.PLAYERS_CHARACTERISTICS_KEY] ==
-                         tfab_consts.PlayerCharacteristics["OFFENSIVE"])
+                    x[i, j] * (sorted_players[i][TConsts.PLAYERS_CHARACTERISTICS_KEY] ==
+                         TConsts.PlayerCharacteristics["OFFENSIVE"])
                     for i in range(num_members))
                 prob += att_max >= lpSum(
-                    x[i, j] * (sorted_players[i][TFABDBHandler.PLAYERS_CHARACTERISTICS_KEY] ==
-                    tfab_consts.PlayerCharacteristics["OFFENSIVE"])
+                    x[i, j] * (sorted_players[i][TConsts.PLAYERS_CHARACTERISTICS_KEY] ==
+                    TConsts.PlayerCharacteristics["OFFENSIVE"])
                     for i in range(num_members))
                 prob += def_min <= lpSum(
-                    x[i, j] * (sorted_players[i][TFABDBHandler.PLAYERS_CHARACTERISTICS_KEY] ==
-                    tfab_consts.PlayerCharacteristics["DEFENSIVE"])
+                    x[i, j] * (sorted_players[i][TConsts.PLAYERS_CHARACTERISTICS_KEY] ==
+                    TConsts.PlayerCharacteristics["DEFENSIVE"])
                     for i in range(num_members))
                 prob += def_max >= lpSum(
-                    x[i, j] * (sorted_players[i][TFABDBHandler.PLAYERS_CHARACTERISTICS_KEY] ==
-                    tfab_consts.PlayerCharacteristics["DEFENSIVE"])
+                    x[i, j] * (sorted_players[i][TConsts.PLAYERS_CHARACTERISTICS_KEY] ==
+                    TConsts.PlayerCharacteristics["DEFENSIVE"])
                     for i in range(num_members))
 
             prob += att_max - att_min <= 1
@@ -154,7 +152,7 @@ class TeamGenerator(object):
         for i in range(num_members):
             for j in range(amount_of_teams):
                 if value(x[i, j]) == 1:
-                    result_list[j][TFABDBHandler.MATCHDAYS_SPECIFIC_TEAM_ROSTER_KEY].append(sorted_players[i])
-                    result_list[j][TFABDBHandler.MATCHDAYS_SPECIFIC_TEAM_RATING_KEY] += sorted_players[i][TFABDBHandler.MATCHDAYS_SPECIFIC_TEAM_PLAYER_RATING_KEY]
+                    result_list[j][TConsts.MATCHDAYS_SPECIFIC_TEAM_ROSTER_KEY].append(sorted_players[i])
+                    result_list[j][TConsts.MATCHDAYS_SPECIFIC_TEAM_RATING_KEY] += sorted_players[i][TConsts.MATCHDAYS_SPECIFIC_TEAM_PLAYER_RATING_KEY] # TODO: remove the total rating and calculate it elsewhere
 
         return result_list

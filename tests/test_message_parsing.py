@@ -1,8 +1,8 @@
 import re
 import os
 import pytest
-from ..tfab_message_parser import MessageParser
-from ..tfab_database_handler import TFABDBHandler
+from tfab_utils.tfab_message_parser import MessageParser
+from tfab_framework.tfab_consts import Consts as TConsts
 
 first_message = """בלהבלה
 בלהלהלה
@@ -68,18 +68,18 @@ class TestMessageParsing:
         print("File name is {0}".format(message_file[0]))
         result_dict = MessageParser.parse_matchday_message(message_file[1])
 
-        assert result_dict[TFABDBHandler.MATCHDAYS_ROSTER_KEY] is not None and \
-               result_dict[TFABDBHandler.MATCHDAYS_DATE_KEY] is not None and \
-               result_dict[TFABDBHandler.MATCHDAYS_LOCATION_KEY] is not None and \
-               result_dict[TFABDBHandler.MATCHDAYS_ORIGINAL_MESSAGE_KEY] is not None
+        assert result_dict[TConsts.MATCHDAYS_ROSTER_KEY] is not None and \
+               result_dict[TConsts.MATCHDAYS_DATE_KEY] is not None and \
+               result_dict[TConsts.MATCHDAYS_LOCATION_KEY] is not None and \
+               result_dict[TConsts.MATCHDAYS_ORIGINAL_MESSAGE_KEY] is not None
 
-        assert len(result_dict[TFABDBHandler.MATCHDAYS_ROSTER_KEY]) in player_list_sizes
-        assert result_dict[TFABDBHandler.MATCHDAYS_LOCATION_KEY] in locations
+        assert len(result_dict[TConsts.MATCHDAYS_ROSTER_KEY]) in player_list_sizes
+        assert result_dict[TConsts.MATCHDAYS_LOCATION_KEY] in locations
 
         pattern = re.compile(r"\d{2}-\d{2}-\d{4}")
-        assert pattern.search(result_dict[TFABDBHandler.MATCHDAYS_DATE_KEY].strip())
+        assert pattern.search(result_dict[TConsts.MATCHDAYS_DATE_KEY].strip())
 
-        for player in result_dict[TFABDBHandler.MATCHDAYS_ROSTER_KEY]:
+        for player in result_dict[TConsts.MATCHDAYS_ROSTER_KEY]:
             if player not in matchday_player_appearances.keys():
                 matchday_player_appearances[player] = 1
             else:
