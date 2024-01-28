@@ -70,7 +70,9 @@ class TFABApplication(object):
                     CallbackQueryHandler(SettingsMenuHandlers.constraints_menu_handler,
                                          pattern=str(TFABMenuHierarchy.MATCHDAYS_MENU_SETTINGS_CONSTRAINTS)),
                     CallbackQueryHandler(SettingsMenuHandlers.parameters_menu_handler,
-                                         pattern=str("|".join([str(TFABMenuHierarchy.MATCHDAYS_MENU_SETTINGS_PARAMETERS)] +
+                                         pattern=str("|".join([str(TFABMenuHierarchy.MATCHDAYS_MENU_SETTINGS_PARAMETERS),
+                                                              str(TConsts.INTERNAL_RATING_DEVIATION_THRESHOLD_KEY),
+                                                               str(TConsts.EOO_QUERY_DATA)] +
                                                               list(TConsts.TeamGenerationParameters.values())))),
                     MessageHandler(filters.TEXT & ~filters.COMMAND, SettingsMenuHandlers.parameters_menu_handler)
                 ],
