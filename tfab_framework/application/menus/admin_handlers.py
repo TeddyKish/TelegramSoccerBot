@@ -146,7 +146,7 @@ class MatchdaysMenuHandlers(object):
             player_dicts_list.append({
                 TConsts.PLAYERS_NAME_KEY: player,
                 TConsts.PLAYERS_CHARACTERISTICS_KEY: db.get_player_characteristic(player),
-                TConsts.MATCHDAYS_SPECIFIC_TEAM_PLAYER_RATING_KEY: db.get_player_average_rating(player)})
+                TConsts.MATCHDAYS_SPECIFIC_TEAM_PLAYER_RATING_KEY: db.get_player_average_rating(player, db.get_configuration_value(TConsts.INTERNAL_RATING_DEVIATION_THRESHOLD_KEY))})
 
         await context.bot.send_message(chat_id=update.effective_chat.id, text="מחשב..")
         teams_dict = tfab_team_generator.TeamGenerator.generate_teams\
@@ -637,6 +637,10 @@ class SettingsMenuHandlers(object):
         elif query.data == TConsts.TeamGenerationParameters["NUM_TEAMS"]:
             current_size = db.get_configuration_value(TConsts.TeamGenerationParameters["NUM_TEAMS"])
             db.modify_configuration_value(TConsts.TeamGenerationParameters["NUM_TEAMS"], 2 if (current_size + 1) % 6 == 0 else current_size + 1)
+        elif query.data == TConsts.INTERNAL_RATING_DEVIATION_THRESHOLD_KEY:
+            current_thresh = db.get_configuration_value(TConsts.INTERNAL_RATING_DEVIATION_THRESHOLD_KEY)
+            db.modify_configuration_value(TConsts.INTERNAL_RATING_DEVIATION_THRESHOLD_KEY,
+                                          0.5 if (current_thresh + 0.25) % 2.5 == 0 else current_thresh + 0.25)
         else:
             tfab_logger.error("Received illegal query data for the parameters menu")
             await CommonHandlers.illegal_situation_handler(update, context)
@@ -655,6 +659,8 @@ class SettingsMenuHandlers(object):
                                   callback_data=str(TConsts.TeamGenerationParameters["BLC_DEFENSE"])),
              InlineKeyboardButton("איזון שחקני התקפה: {0}".format(get_state_string(TConsts.TeamGenerationParameters["BLC_OFFENSE"])),
                                   callback_data=str(TConsts.TeamGenerationParameters["BLC_OFFENSE"]))],
+            [InlineKeyboardButton("מידת חופש למדרגים: {0}".format(db.get_configuration_value(TConsts.INTERNAL_RATING_DEVIATION_THRESHOLD_KEY)),
+                                  callback_data=str(TConsts.INTERNAL_RATING_DEVIATION_THRESHOLD_KEY))]
             ]
 
         await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard))

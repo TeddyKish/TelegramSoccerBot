@@ -55,3 +55,4 @@ class Consts(object):
     INTERNAL_CONFIGURATION_VALUE = "ConfigValue"
     INTERNAL_ADMIN_PASSWORD_KEY = "AdminPassword"
     INTERNAL_RANKER_PASSWORD_KEY = "RankerPassword"
+    INTERNAL_RATING_DEVIATION_THRESHOLD_KEY = "MaximumDeviationThreshold"

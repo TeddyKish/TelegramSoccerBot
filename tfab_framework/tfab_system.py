@@ -36,13 +36,15 @@ class TFABSystem(object):
         """
         self.__db = TFABDBHandler.get_instance(db_name, db_port)
 
-        # Initialize passwords
+        # Initialize metadata
         if not self.__db.check_configuration_existence(TConsts.INTERNAL_ADMIN_PASSWORD_KEY):
             self.__db.insert_configuration_value(TConsts.INTERNAL_ADMIN_PASSWORD_KEY,
                                                  self.__configuration.BOTITO_SECRET_ADMINS_PASSWORD)
         if not self.__db.check_configuration_existence(TConsts.INTERNAL_RANKER_PASSWORD_KEY):
             self.__db.insert_configuration_value(TConsts.INTERNAL_RANKER_PASSWORD_KEY,
                                                  self.__configuration.BOTITO_SECRET_RANKERS_PASSWORD)
+        if not self.__db.check_configuration_existence(TConsts.INTERNAL_RATING_DEVIATION_THRESHOLD_KEY):
+            self.__db.insert_configuration_value(TConsts.INTERNAL_RATING_DEVIATION_THRESHOLD_KEY, 1)
 
         # Initialize team generation parameters
         if not self.__db.check_configuration_existence(TConsts.TeamGenerationParameters["NUM_TEAMS"]):
