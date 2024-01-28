@@ -2,6 +2,15 @@ class Consts(object):
     """
     Encompasses all the different system consts.
     """
+    TeamGenerationParameters = {
+        "BLC_RATINGS": "BR",
+        "BLC_TIERS": "BT",
+        "BLC_DEFENSE": "BD",
+        "BLC_OFFENSE": "BO",
+        "BLC_ROLES": "BRO",
+        "NUM_TEAMS": "NT"
+    }
+
     PlayerCharacteristics = {
         "GOALKEEPER": "GK",
         "DEFENSIVE": "DEF",

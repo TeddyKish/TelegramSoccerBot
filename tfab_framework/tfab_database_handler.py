@@ -35,22 +35,33 @@ class TFABDBHandler(object):
             if cname not in collection_names:
                 self.db.create_collection(cname)
 
-    def insert_configuration(self, configuration):
+    def insert_configuration_value(self, configuration_key, configuration_value):
         """
         Inserts configuration values to the database.
         """
         internal_collection = self.__get_collection(TConsts.INTERNAL_COLLECTION_NAME)
-
-        admin_password = {TConsts.INTERNAL_CONFIGURATION_KEY: TConsts.INTERNAL_ADMIN_PASSWORD_KEY,
-                          TConsts.INTERNAL_CONFIGURATION_VALUE: configuration.BOTITO_SECRET_ADMINS_PASSWORD}
-        ranker_password = {TConsts.INTERNAL_CONFIGURATION_KEY: TConsts.INTERNAL_RANKER_PASSWORD_KEY,
-                          TConsts.INTERNAL_CONFIGURATION_VALUE: configuration.BOTITO_SECRET_RANKERS_PASSWORD}
+        inserted_value = {TConsts.INTERNAL_CONFIGURATION_KEY: configuration_key,
+                          TConsts.INTERNAL_CONFIGURATION_VALUE: configuration_value}
 
         try:
-            internal_collection.insert_one(admin_password)
-            internal_collection.insert_one(ranker_password)
+            internal_collection.insert_one(inserted_value)
         except Exception as e:
             raise tfab_exception.TFABDatabaseError("TFAB Database Error occurred: " + str(e))
+
+    def modify_configuration_value(self, configuration_key, configuration_value):
+        """
+        Modifies <configuration_key> to hold <configuration_value>.
+        """
+        internal_collection = self.__get_collection(TConsts.INTERNAL_COLLECTION_NAME)
+        filter_object = {TConsts.INTERNAL_CONFIGURATION_KEY: configuration_key}
+        update_object = {TConsts.INTERNAL_CONFIGURATION_VALUE: configuration_value}
+
+        try:
+            result = internal_collection.update_one(filter_object, {"$set": update_object})
+        except Exception as e:
+            raise tfab_exception.TFABDatabaseError("TFAB Database Error occurred: " + str(e))
+
+        return result.matched_count == 1, result.modified_count == 1
 
     def get_configuration_value(self, configuration_key):
         """
@@ -65,6 +76,22 @@ class TFABDBHandler(object):
             raise tfab_exception.TFABDatabaseError("TFAB Database Error occurred: " + str(e))
 
         return result[TConsts.INTERNAL_CONFIGURATION_VALUE] if result is not None else None
+
+    def check_configuration_existence(self, configuration_key):
+        """
+        Checks whether a configuration key exists in the database.
+        :param configuration_key: The key to search for
+        :return: True if <configuration_key> exists in the Internal collection, False otherwise
+        """
+        internal_collection = self.__get_collection(TConsts.INTERNAL_COLLECTION_NAME)
+        filter_object = {TConsts.INTERNAL_CONFIGURATION_KEY: configuration_key}
+
+        try:
+            result = internal_collection.find_one(filter_object)
+        except Exception as e:
+            raise tfab_exception.TFABDatabaseError("TFAB Database Error occurred: " + str(e))
+
+        return result is not None
 
     def insert_player(self, player_name, characteristics):
         """

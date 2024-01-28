@@ -2,7 +2,7 @@ from tfab_framework.tfab_logger import tfab_logger
 from tfab_framework.tfab_consts import Consts as TConsts
 from tfab_framework.application.menus.input_handlers import InputRoutingHandlers
 from tfab_framework.application.menus.rankers_handlers import RankersMenuHandlers
-from tfab_framework.application.menus.admin_handlers import AdminMenuHandlers, MatchdaysMenuHandlers, PlayersMenuHandlers
+from tfab_framework.application.menus.admin_handlers import AdminMenuHandlers, MatchdaysMenuHandlers, PlayersMenuHandlers, SettingsMenuHandlers
 from tfab_framework.application.menus.menu_utils import TFABMenuHierarchy, CommonHandlers
 
 from telegram.ext import filters, MessageHandler, ApplicationBuilder, ContextTypes, CommandHandler, CallbackQueryHandler
@@ -63,6 +63,16 @@ class TFABApplication(object):
                                          pattern=str(TFABMenuHierarchy.MATCHDAYS_MENU_SHOW_TODAY_INFO)),
                     CallbackQueryHandler(MatchdaysMenuHandlers.generate_teams_handler,
                                          pattern=str(TFABMenuHierarchy.MATCHDAYS_MENU_GENERATE_TEAMS)),
+                    CallbackQueryHandler(MatchdaysMenuHandlers.matchdays_settings_menu,
+                                         pattern=str(TFABMenuHierarchy.MATCHDAYS_MENU_SETTINGS)),
+                ],
+                TFABMenuHierarchy.MATCHDAYS_MENU_SETTINGS: [
+                    CallbackQueryHandler(SettingsMenuHandlers.constraints_menu_handler,
+                                         pattern=str(TFABMenuHierarchy.MATCHDAYS_MENU_SETTINGS_CONSTRAINTS)),
+                    CallbackQueryHandler(SettingsMenuHandlers.parameters_menu_handler,
+                                         pattern=str("|".join([str(TFABMenuHierarchy.MATCHDAYS_MENU_SETTINGS_PARAMETERS)] +
+                                                              list(TConsts.TeamGenerationParameters.values())))),
+                    MessageHandler(filters.TEXT & ~filters.COMMAND, SettingsMenuHandlers.parameters_menu_handler)
                 ],
                 TFABMenuHierarchy.ADMIN_MENU_PLAYERS: [
                     CallbackQueryHandler(PlayersMenuHandlers.add_player_handler,
@@ -89,18 +99,6 @@ class TFABApplication(object):
         # The last handlers that handle unknown commands or text
         self.__ptb_app.add_handler(MessageHandler(filters.COMMAND, CommonHandlers.unknown_command_handler))
         self.__ptb_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, CommonHandlers.unknown_text_handler))
-
-    def get_admins_password(self):
-        """
-        :return: The secret password to login as an Admin.
-        """
-        return self.configuration.BOTITO_SECRET_ADMINS_PASSWORD
-
-    def get_rankers_password(self):
-        """
-        :return: The secret password to login as a Ranker.
-        """
-        return self.configuration.BOTITO_SECRET_RANKERS_PASSWORD
 
     def run(self):
         """

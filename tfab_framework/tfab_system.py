@@ -1,5 +1,6 @@
 from tfab_framework.tfab_logger import tfab_logger
 from tfab_framework.application.tfab_app import TFABApplication
+from tfab_framework.tfab_consts import Consts as TConsts
 from tfab_framework.tfab_database_handler import TFABDBHandler
 from tfab_framework.tfab_configuration import TFABConfiguration
 from tfab_framework.tfab_exception import TFABSystemError, TFABConfigurationError, TFABDatabaseError, \
@@ -34,7 +35,22 @@ class TFABSystem(object):
         Initializes the database we're working with.
         """
         self.__db = TFABDBHandler.get_instance(db_name, db_port)
-        self.__db.insert_configuration(self.__configuration)
+
+        # Initialize passwords
+        if not self.__db.check_configuration_existence(TConsts.INTERNAL_ADMIN_PASSWORD_KEY):
+            self.__db.insert_configuration_value(TConsts.INTERNAL_ADMIN_PASSWORD_KEY,
+                                                 self.__configuration.BOTITO_SECRET_ADMINS_PASSWORD)
+        if not self.__db.check_configuration_existence(TConsts.INTERNAL_RANKER_PASSWORD_KEY):
+            self.__db.insert_configuration_value(TConsts.INTERNAL_RANKER_PASSWORD_KEY,
+                                                 self.__configuration.BOTITO_SECRET_RANKERS_PASSWORD)
+
+        # Initialize team generation parameters
+        if not self.__db.check_configuration_existence(TConsts.TeamGenerationParameters["NUM_TEAMS"]):
+            self.__db.insert_configuration_value(TConsts.TeamGenerationParameters["NUM_TEAMS"], 3)
+        for key in TConsts.TeamGenerationParameters.values():
+            if not self.__db.check_configuration_existence(key):
+                self.__db.insert_configuration_value(key, 1)
+
 
     def __initialize_app(self, config, db):
         """

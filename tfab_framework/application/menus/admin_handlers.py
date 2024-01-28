@@ -76,6 +76,27 @@ class MatchdaysMenuHandlers(object):
     """
     Handles the matchdays menu hierarchy.
     """
+    @staticmethod
+    async def matchdays_settings_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """
+        Handle the admin->matchdays->settings menu.
+        """
+        if HandlerUtils.get_update_type(update) != UpdateTypes.CALLBACK_QUERY:
+            await CommonHandlers.illegal_situation_handler(update, context)
+
+        query = update.callback_query
+        await query.answer()
+
+        text = """בחר את האפשרות הרצויה:"""
+        keyboard = [
+            [InlineKeyboardButton("אילוצים",
+                                  callback_data=str(TFABMenuHierarchy.MATCHDAYS_MENU_SETTINGS_CONSTRAINTS))],
+            [InlineKeyboardButton("פרמטרים",
+                                  callback_data=str(TFABMenuHierarchy.MATCHDAYS_MENU_SETTINGS_PARAMETERS))]
+        ]
+
+        await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
+        return TFABMenuHierarchy.MATCHDAYS_MENU_SETTINGS
 
     @staticmethod
     async def matchdays_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -91,8 +112,9 @@ class MatchdaysMenuHandlers(object):
         text = """בחר את האפשרות הרצויה:"""
         keyboard = [
             [InlineKeyboardButton("הצג מידע להיום", callback_data=str(TFABMenuHierarchy.MATCHDAYS_MENU_SHOW_TODAY_INFO))],
-            [InlineKeyboardButton("צור כוחות", callback_data=str(TFABMenuHierarchy.MATCHDAYS_MENU_GENERATE_TEAMS))],
-            [InlineKeyboardButton("קבע רשימה להיום", callback_data=str(TFABMenuHierarchy.MATCHDAYS_MENU_SET_TODAY_LIST))]
+            [InlineKeyboardButton("קבע רשימה להיום", callback_data=str(TFABMenuHierarchy.MATCHDAYS_MENU_SET_TODAY_LIST))],
+            [InlineKeyboardButton("צור כוחות", callback_data=str(TFABMenuHierarchy.MATCHDAYS_MENU_GENERATE_TEAMS)),
+             InlineKeyboardButton("הגדרות", callback_data=str(TFABMenuHierarchy.MATCHDAYS_MENU_SETTINGS))]
         ]
 
         await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
@@ -127,7 +149,15 @@ class MatchdaysMenuHandlers(object):
                 TConsts.MATCHDAYS_SPECIFIC_TEAM_PLAYER_RATING_KEY: db.get_player_average_rating(player)})
 
         await context.bot.send_message(chat_id=update.effective_chat.id, text="מחשב..")
-        teams_dict = tfab_team_generator.TeamGenerator.generate_teams(player_dicts_list)
+        teams_dict = tfab_team_generator.TeamGenerator.generate_teams\
+            (player_dicts_list,
+             balance_team_ratings=db.get_configuration_value(TConsts.TeamGenerationParameters["BLC_RATINGS"]),
+             enforce_tiers=db.get_configuration_value(TConsts.TeamGenerationParameters["BLC_TIERS"]),
+             enforce_defense=db.get_configuration_value(TConsts.TeamGenerationParameters["BLC_DEFENSE"]),
+             enforce_offense=db.get_configuration_value(TConsts.TeamGenerationParameters["BLC_OFFENSE"]),
+             enforce_total_roles=db.get_configuration_value(TConsts.TeamGenerationParameters["BLC_ROLES"]),
+             num_teams=db.get_configuration_value(TConsts.TeamGenerationParameters["NUM_TEAMS"]),
+             coupling_constraints=None, decoupling_constraints=None)
         if not db.insert_teams_to_matchday(today_date, teams_dict):
             # Impossible because we already checked that there is a matchday occuring today
             await CommonHandlers.illegal_situation_handler(update, context)
@@ -431,3 +461,89 @@ class PlayersMenuHandlers(object):
                 return await PlayersMenuHandlers.edit_player_handler(update, context)
 
         return await CommonHandlers.illegal_situation_handler(update, context)
+
+
+class SettingsMenuHandlers(object):
+    """
+    Encompasses the complicated operations of the Settings menu.
+    """
+
+    @staticmethod
+    async def constraints_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """
+        Handles the settings->constraints menu.
+        """
+        if HandlerUtils.get_update_type(update) != UpdateTypes.CALLBACK_QUERY:
+            await CommonHandlers.illegal_situation_handler(update, context)
+
+        query = update.callback_query
+        await query.answer()
+
+        text = """בחר את האפשרות הרצויה:"""
+        keyboard = [
+            [InlineKeyboardButton("הצג אילוצים", callback_data=str(TFABMenuHierarchy.MATCHDAYS_CONSTRAINTS_SHOW_ACTIVE))],
+            [InlineKeyboardButton("הצמד שחקנים", callback_data=str(TFABMenuHierarchy.MATCHDAYS_CONSTRAINTS_CREATE_COUPLING)),
+             InlineKeyboardButton("הפרד שחקנים", callback_data=str(TFABMenuHierarchy.MATCHDAYS_CONSTRAINTS_CREATE_DECOUPLING))]
+        ]
+
+        await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
+        return TFABMenuHierarchy.MATCHDAYS_MENU_SETTINGS_CONSTRAINTS
+
+    @staticmethod
+    async def parameters_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """
+        Handles the settings->constraints menu.
+        """
+        def get_state_string(configuration_key):
+            """
+            Returns the state string for the requested configuration key.
+            """
+            return "דלוק" if TFABDBHandler.get_instance().get_configuration_value(configuration_key) == 1 else "כבוי"
+
+        if HandlerUtils.get_update_type(update) == UpdateTypes.TEXTUAL_MESSAGE:
+            context.user_data[UserDataIndices.CONTEXTUAL_LAST_OPERATION_STATUS] = True
+            return await CommonHandlers.entrypoint_handler(update, context)
+        elif HandlerUtils.get_update_type(update) != UpdateTypes.CALLBACK_QUERY:
+            await CommonHandlers.illegal_situation_handler(update, context)
+
+        query = update.callback_query
+        await query.answer()
+        db = TFABDBHandler.get_instance()
+
+        if query.data == str(TFABMenuHierarchy.MATCHDAYS_MENU_SETTINGS_PARAMETERS):
+            pass
+        elif query.data == TConsts.TeamGenerationParameters["BLC_RATINGS"]:
+            db.modify_configuration_value(TConsts.TeamGenerationParameters["BLC_RATINGS"], int(not db.get_configuration_value(TConsts.TeamGenerationParameters["BLC_RATINGS"])))
+        elif query.data == TConsts.TeamGenerationParameters["BLC_TIERS"]:
+            db.modify_configuration_value(TConsts.TeamGenerationParameters["BLC_TIERS"], int(not db.get_configuration_value(TConsts.TeamGenerationParameters["BLC_TIERS"])))
+        elif query.data == TConsts.TeamGenerationParameters["BLC_DEFENSE"]:
+            db.modify_configuration_value(TConsts.TeamGenerationParameters["BLC_DEFENSE"], int(not db.get_configuration_value(TConsts.TeamGenerationParameters["BLC_DEFENSE"])))
+        elif query.data == TConsts.TeamGenerationParameters["BLC_OFFENSE"]:
+            db.modify_configuration_value(TConsts.TeamGenerationParameters["BLC_OFFENSE"], int(not db.get_configuration_value(TConsts.TeamGenerationParameters["BLC_OFFENSE"])))
+        elif query.data == TConsts.TeamGenerationParameters["BLC_ROLES"]:
+            db.modify_configuration_value(TConsts.TeamGenerationParameters["BLC_ROLES"], int(not db.get_configuration_value(TConsts.TeamGenerationParameters["BLC_ROLES"])))
+        elif query.data == TConsts.TeamGenerationParameters["NUM_TEAMS"]:
+            current_size = db.get_configuration_value(TConsts.TeamGenerationParameters["NUM_TEAMS"])
+            db.modify_configuration_value(TConsts.TeamGenerationParameters["NUM_TEAMS"], 2 if (current_size + 1) % 6 == 0 else current_size + 1)
+        else:
+            tfab_logger.error("Received illegal query data for the parameters menu")
+            await CommonHandlers.illegal_situation_handler(update, context)
+
+        text = """בחר את האפשרות הרצויה:"""
+        keyboard = [
+            [InlineKeyboardButton("איזון דירוגי קבוצות: {0}".format(get_state_string(TConsts.TeamGenerationParameters["BLC_RATINGS"])),
+                                  callback_data=str(TConsts.TeamGenerationParameters["BLC_RATINGS"])),
+             InlineKeyboardButton("מספר קבוצות: {0}".format(db.get_configuration_value(TConsts.TeamGenerationParameters["NUM_TEAMS"])),
+                 callback_data=str(TConsts.TeamGenerationParameters["NUM_TEAMS"]))],
+            [InlineKeyboardButton("ווידוא שחקן מכל דרג: {0}".format(get_state_string(TConsts.TeamGenerationParameters["BLC_TIERS"])),
+                                  callback_data=str(TConsts.TeamGenerationParameters["BLC_TIERS"])),
+             InlineKeyboardButton("איזון תפקידים כללי: {0}".format(get_state_string(TConsts.TeamGenerationParameters["BLC_ROLES"])),
+                    callback_data=str(TConsts.TeamGenerationParameters["BLC_ROLES"]))],
+            [InlineKeyboardButton("איזון שחקני הגנה: {0}".format(get_state_string(TConsts.TeamGenerationParameters["BLC_DEFENSE"])),
+                                  callback_data=str(TConsts.TeamGenerationParameters["BLC_DEFENSE"])),
+             InlineKeyboardButton("איזון שחקני התקפה: {0}".format(get_state_string(TConsts.TeamGenerationParameters["BLC_OFFENSE"])),
+                                  callback_data=str(TConsts.TeamGenerationParameters["BLC_OFFENSE"]))],
+            ]
+
+        await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
+        return TFABMenuHierarchy.MATCHDAYS_MENU_SETTINGS

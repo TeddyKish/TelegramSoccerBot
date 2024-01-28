@@ -40,6 +40,7 @@ The prototype above will be implemented to completion.
 - [X] Add the option to rank a specific player
 - [X] Reorganize the framework
 - [X] Add custom total-ranking calculation of teams with no goalkeeper
+- [X] Added settings menu for team generation
 - [ ] Enforce player-coupling/decoupling requirements
 - [ ] Enforce removal of faulty rankings
 
