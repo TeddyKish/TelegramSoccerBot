@@ -127,7 +127,7 @@ class MessageParser:
         if teams:
             message += "\nלהלן הקבוצות שנוצרו עבור המשחק:\n"
             for team_index, team in enumerate(teams):
-                message += "קבוצה {0}: (ציון הקבוצה - {1:.2f})\n".format(team_index + 1, team[TConsts.MATCHDAYS_SPECIFIC_TEAM_RATING_KEY]) #TODO: calculate correct rating here
+                message += "קבוצה {0}: (ציון הקבוצה - {1:.2f})\n".format(team_index + 1, team[TConsts.MATCHDAYS_SPECIFIC_TEAM_RATING_KEY])
                 players = team[TConsts.MATCHDAYS_SPECIFIC_TEAM_ROSTER_KEY]
                 for player_index, player in enumerate(players):
                     message += "{0}.{1} - {2:.2f} ({3})\n".format(player_index + 1, player[TConsts.PLAYERS_NAME_KEY],

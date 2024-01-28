@@ -16,6 +16,12 @@ Currently, expects to receive a YML configuration located at `./tfab_data/tfab_c
            - [X] Today's Roster: -> Please send today's message -> Successfully loaded today's list
            - [X] Generate: -> Generates today's teams, with the sum of each team's individual ratings at the end 
            - [X] Show: -> Shows today's information
+           - [ ] Settings
+             - [ ] Constraints
+               - [ ] Create Coupling Constraint
+               - [ ] Create DeCoupling Constraint
+               - [ ] Show Current Active Constraints (should be reset by setting today's roster)
+             - [ ] Parameters (InlineKeyboard with Dynamic options)
        - [X]  Players Menu
            - [X] Add Player: -> What's the player name? -> Characteristics -> Added successfully
            - [X] Edit Player: -> What's the player name? -> Player edit menu (currently- GK/Attacker/Defender)
@@ -33,9 +39,9 @@ The prototype above will be implemented to completion.
 - [X] Remove goalies from the ranked list
 - [X] Add the option to rank a specific player
 - [X] Reorganize the framework
+- [X] Add custom total-ranking calculation of teams with no goalkeeper
 - [ ] Enforce player-coupling/decoupling requirements
 - [ ] Enforce removal of faulty rankings
-- [ ] Add custom total-ranking calculation of teams with no goalkeeper
 
 ## Version 2.0
     Some niche features, like:
