@@ -35,6 +35,8 @@ class Consts(object):
     USER_ID_KEY = "UserId"
     USER_FULLNAME_KEY = "UserFullName"
 
+    EOO_QUERY_DATA = "EndOfOperation"
+
     MATCHDAYS_COLLECTION_NAME = "Matchdays"
     MATCHDAYS_TEAMS_KEY = "Teams"
     MATCHDAYS_ORIGINAL_MESSAGE_KEY = "OriginalMessage"
@@ -55,3 +57,4 @@ class Consts(object):
     INTERNAL_CONFIGURATION_VALUE = "ConfigValue"
     INTERNAL_ADMIN_PASSWORD_KEY = "AdminPassword"
     INTERNAL_RANKER_PASSWORD_KEY = "RankerPassword"
+    INTERNAL_RATING_DEVIATION_THRESHOLD_KEY = "MaximumDeviationThreshold"

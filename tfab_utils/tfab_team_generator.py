@@ -100,7 +100,7 @@ class TeamGenerator(object):
         # --------------------
 
         # Enforce that the difference in ratings between the strongest team and the weakest team is optimal
-        if balance_team_ratings and equal_sized_teams and TeamGenerator.get_gk_amount(player_dicts_list) == num_teams:
+        if balance_team_ratings and equal_sized_teams and TeamGenerator.get_gk_amount(player_dicts_list) in [num_teams, 0]:
             weakest_team = LpVariable("weakest_team", 0, 100)
             strongest_team = LpVariable("strongest_team", 0, 100)
 
@@ -118,9 +118,8 @@ class TeamGenerator(object):
         if enforce_tiers:
             for j in range(num_teams):
                 for tier in range(num_members // num_teams):
-                    prob += lpSum(
-                        x[i, j] * (TeamGenerator.get_player_tier(sorted_players, sorted_players[i]) == tier)
-                        for i in range(num_members)) <= 1  # In-equation not tight to support not-equally-sized teams
+                    prob += lpSum( x[i, j] * (TeamGenerator.get_player_tier(i, num_teams) == tier)
+                            for i in range(num_members)) <= 1  # In-equation not tight to support different-sized teams
 
         if enforce_defense or enforce_offense or enforce_total_roles:
             # Define att_max as the largest amount of attackers in one team, and att_min as the smallest amount
@@ -172,7 +171,7 @@ class TeamGenerator(object):
         # Solve the LP problem
         seed = random.choice([i for i in range(100)])
         cbc_solver = PULP_CBC_CMD(keepFiles=False,
-                                  # Set random seed to ensure reproducability, passes as command-line arg to solver
+                                  # Set random seed to ensure reproducibility, passes as command-line arg to solver
                                   options=[f"RandomS {seed}"])
         prob.solve(cbc_solver)
         if prob.status == LpStatusInfeasible:
@@ -208,20 +207,13 @@ class TeamGenerator(object):
         # otherwise - calculate all permutations, average it and there you have the rating
 
     @staticmethod
-    def get_player_tier(player_list, requested_player):
+    def get_player_tier(player_index, tier_size):
         """
-        Assumes <player_list> is sorted from the best player (in terms of rating) to the worst.
-        :param player_list: The players list.
-        :param requested_player: The player we wish to acquire the tier from.
-        :return: The tier of the requested player.
+        :param player_index: The index of the requested player.
+        :param tier_size: The size of each tier (practically, the amount of teams)
+        :return: Returns the tier for the player at <player_index> in the sorted players list.
         """
-        ind = 0
-        for player in player_list:
-            if player[TConsts.PLAYERS_NAME_KEY] == requested_player[TConsts.PLAYERS_NAME_KEY]:
-                return ind // 3
-            ind += 1
-
-        return -1
+        return player_index // tier_size
 
     @staticmethod
     def get_gk_amount(player_list):

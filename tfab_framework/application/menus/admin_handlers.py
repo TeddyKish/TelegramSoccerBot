@@ -146,7 +146,7 @@ class MatchdaysMenuHandlers(object):
             player_dicts_list.append({
                 TConsts.PLAYERS_NAME_KEY: player,
                 TConsts.PLAYERS_CHARACTERISTICS_KEY: db.get_player_characteristic(player),
-                TConsts.MATCHDAYS_SPECIFIC_TEAM_PLAYER_RATING_KEY: db.get_player_average_rating(player)})
+                TConsts.MATCHDAYS_SPECIFIC_TEAM_PLAYER_RATING_KEY: db.get_player_average_rating(player, db.get_configuration_value(TConsts.INTERNAL_RATING_DEVIATION_THRESHOLD_KEY))})
 
         await context.bot.send_message(chat_id=update.effective_chat.id, text="מחשב..")
         teams_dict = tfab_team_generator.TeamGenerator.generate_teams\
@@ -503,16 +503,21 @@ class SettingsMenuHandlers(object):
         await update.callback_query.answer()
         today_date = datetime.now().strftime(TConsts.MATCHDAYS_DATE_FORMAT)
         matchday = TFABDBHandler.get_instance().get_matchday(today_date)
+        if not matchday:
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="שימוש באילוצים מחייב שתהיה רשימת משחק תקפה להיום.")
+            context.user_data[UserDataIndices.CONTEXTUAL_LAST_OPERATION_STATUS] = False
+            return await CommonHandlers.entrypoint_handler(update, context)
+
         couplings = matchday[TConsts.MATCHDAYS_COUPLING_CONSTRAINTS_KEY]
         decouplings = matchday[TConsts.MATCHDAYS_DECOUPLING_CONSTRAINTS_KEY]
 
         output = ""
         if couplings:
-            output += "להלן רשימת האילוצים הנוכחית:\n"
+            output += "להלן רשימת ההצמדות הנוכחית:\n"
             for index, entry in enumerate(couplings):
                 output += "{0}.{1}\n".format(index + 1, ",".join(entry))
         else:
-            output += "לא קיימים אילוצים כרגע.\n"
+            output += "לא קיימות הצמדות כרגע.\n"
 
         output += "\n"
 
@@ -537,6 +542,13 @@ class SettingsMenuHandlers(object):
 
         query = update.callback_query
         await query.answer()
+
+        today_date = datetime.now().strftime(TConsts.MATCHDAYS_DATE_FORMAT)
+        if not TFABDBHandler.get_instance().get_matchday(today_date):
+            await context.bot.send_message(chat_id=update.effective_chat.id,
+                                           text="שימוש באילוצים מחייב שתהיה רשימת משחק תקפה להיום.")
+            context.user_data[UserDataIndices.CONTEXTUAL_LAST_OPERATION_STATUS] = False
+            return await CommonHandlers.entrypoint_handler(update, context)
 
         text = """בחר את האפשרות הרצויה:"""
         keyboard = [
@@ -624,19 +636,22 @@ class SettingsMenuHandlers(object):
 
         if query.data == str(TFABMenuHierarchy.MATCHDAYS_MENU_SETTINGS_PARAMETERS):
             pass
-        elif query.data == TConsts.TeamGenerationParameters["BLC_RATINGS"]:
-            db.modify_configuration_value(TConsts.TeamGenerationParameters["BLC_RATINGS"], int(not db.get_configuration_value(TConsts.TeamGenerationParameters["BLC_RATINGS"])))
-        elif query.data == TConsts.TeamGenerationParameters["BLC_TIERS"]:
-            db.modify_configuration_value(TConsts.TeamGenerationParameters["BLC_TIERS"], int(not db.get_configuration_value(TConsts.TeamGenerationParameters["BLC_TIERS"])))
-        elif query.data == TConsts.TeamGenerationParameters["BLC_DEFENSE"]:
-            db.modify_configuration_value(TConsts.TeamGenerationParameters["BLC_DEFENSE"], int(not db.get_configuration_value(TConsts.TeamGenerationParameters["BLC_DEFENSE"])))
-        elif query.data == TConsts.TeamGenerationParameters["BLC_OFFENSE"]:
-            db.modify_configuration_value(TConsts.TeamGenerationParameters["BLC_OFFENSE"], int(not db.get_configuration_value(TConsts.TeamGenerationParameters["BLC_OFFENSE"])))
-        elif query.data == TConsts.TeamGenerationParameters["BLC_ROLES"]:
-            db.modify_configuration_value(TConsts.TeamGenerationParameters["BLC_ROLES"], int(not db.get_configuration_value(TConsts.TeamGenerationParameters["BLC_ROLES"])))
+        elif query.data == str(TConsts.EOO_QUERY_DATA):
+            context.user_data[UserDataIndices.CONTEXTUAL_LAST_OPERATION_STATUS] = True
+            return await CommonHandlers.entrypoint_handler(update, context)
+        elif query.data in [TConsts.TeamGenerationParameters["BLC_RATINGS"],
+                            TConsts.TeamGenerationParameters["BLC_TIERS"],
+                            TConsts.TeamGenerationParameters["BLC_DEFENSE"],
+                            TConsts.TeamGenerationParameters["BLC_OFFENSE"],
+                            TConsts.TeamGenerationParameters["BLC_ROLES"]]:
+            db.modify_configuration_value(query.data, int(not db.get_configuration_value(query.data)))
         elif query.data == TConsts.TeamGenerationParameters["NUM_TEAMS"]:
             current_size = db.get_configuration_value(TConsts.TeamGenerationParameters["NUM_TEAMS"])
             db.modify_configuration_value(TConsts.TeamGenerationParameters["NUM_TEAMS"], 2 if (current_size + 1) % 6 == 0 else current_size + 1)
+        elif query.data == TConsts.INTERNAL_RATING_DEVIATION_THRESHOLD_KEY:
+            current_thresh = db.get_configuration_value(TConsts.INTERNAL_RATING_DEVIATION_THRESHOLD_KEY)
+            db.modify_configuration_value(TConsts.INTERNAL_RATING_DEVIATION_THRESHOLD_KEY,
+                                          0.5 if (current_thresh + 0.25) % 2.5 == 0 else current_thresh + 0.25)
         else:
             tfab_logger.error("Received illegal query data for the parameters menu")
             await CommonHandlers.illegal_situation_handler(update, context)
@@ -655,6 +670,9 @@ class SettingsMenuHandlers(object):
                                   callback_data=str(TConsts.TeamGenerationParameters["BLC_DEFENSE"])),
              InlineKeyboardButton("איזון שחקני התקפה: {0}".format(get_state_string(TConsts.TeamGenerationParameters["BLC_OFFENSE"])),
                                   callback_data=str(TConsts.TeamGenerationParameters["BLC_OFFENSE"]))],
+            [InlineKeyboardButton("מידת חופש למדרגים: {0}".format(db.get_configuration_value(TConsts.INTERNAL_RATING_DEVIATION_THRESHOLD_KEY)),
+                                  callback_data=str(TConsts.INTERNAL_RATING_DEVIATION_THRESHOLD_KEY))],
+            [InlineKeyboardButton("סיימתי", callback_data=str(TConsts.EOO_QUERY_DATA))]
             ]
 
         await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard))

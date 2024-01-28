@@ -1,3 +1,4 @@
+import numpy as np
 from tfab_framework import tfab_exception
 from tfab_framework.tfab_consts import Consts as TConsts
 from pymongo import MongoClient
@@ -203,7 +204,10 @@ class TFABDBHandler(object):
             player_list.append((player[TConsts.PLAYERS_NAME_KEY],
                                 TConsts.PlayerPositionToHebrew[player[TConsts.PLAYERS_CHARACTERISTICS_KEY]]
                                 if hebrew_characteristics
-                                else player[TConsts.PLAYERS_CHARACTERISTICS_KEY]))
+                                else player[TConsts.PLAYERS_CHARACTERISTICS_KEY],
+                                self.get_player_average_rating(player[TConsts.PLAYERS_NAME_KEY],
+                                                               self.get_configuration_value
+                                                               (TConsts.INTERNAL_RATING_DEVIATION_THRESHOLD_KEY))))
         return player_list
 
     def get_user_rankings(self, user_id):
@@ -282,9 +286,10 @@ class TFABDBHandler(object):
 
         return result is not None
 
-    def get_player_average_rating(self, player_name):
+    def get_player_average_rating(self, player_name, dev_threshold):
         """
         Returns the average rating, across all the different rankers, for <player_name>.
+        :param dev_threshold: Maximum deviation threshold.
         :param player_name: The player's name.
         :return: The average rating.
         """
@@ -299,7 +304,6 @@ class TFABDBHandler(object):
         except Exception as e:
             raise tfab_exception.TFABDatabaseError("TFAB Database Error occurred: " + str(e))
 
-        #TODO: solve trolls here
         rating_list = []
         for ranker in all_rankers_cursor:
             # check existence
@@ -308,7 +312,14 @@ class TFABDBHandler(object):
             if player_name in rankings_dictionary:
                 rating_list.append(float(rankings_dictionary[player_name]))
 
-        return sum(rating_list) / len(rating_list) if rating_list else 0
+        filtered_ratings = []
+
+        if rating_list:
+            z_scores = np.abs((rating_list - np.mean(rating_list)) / np.std(rating_list))
+            troll_scores = z_scores > dev_threshold  # Outliers, based on bypassing the threshold
+            filtered_ratings = np.array(rating_list)[~troll_scores]
+
+        return (sum(filtered_ratings) / len(filtered_ratings)) if len(filtered_ratings) > 0 else 0
 
     def insert_teams_to_matchday(self, date, teams):
         """

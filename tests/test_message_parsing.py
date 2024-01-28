@@ -79,13 +79,13 @@ class TestMessageParsing:
         pattern = re.compile(r"\d{2}-\d{2}-\d{4}")
         assert pattern.search(result_dict[TConsts.MATCHDAYS_DATE_KEY].strip())
 
-        for player in result_dict[TConsts.MATCHDAYS_ROSTER_KEY]:
-            if player not in matchday_player_appearances.keys():
-                matchday_player_appearances[player] = 1
-            else:
-                matchday_player_appearances[player] += 1
-
-        sorted_appearances = dict(sorted(matchday_player_appearances.items(), key=lambda item: item[1], reverse=True))
-
-        for player, appearances in sorted_appearances.items():
-            print(f"{player} -> {appearances}")
+        # for player in result_dict[TConsts.MATCHDAYS_ROSTER_KEY]:
+        #     if player not in matchday_player_appearances.keys():
+        #         matchday_player_appearances[player] = 1
+        #     else:
+        #         matchday_player_appearances[player] += 1
+        #
+        # sorted_appearances = dict(sorted(matchday_player_appearances.items(), key=lambda item: item[1], reverse=True))
+        #
+        # for player, appearances in sorted_appearances.items():
+        #     print(f"{player} -> {appearances}")

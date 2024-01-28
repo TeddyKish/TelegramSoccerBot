@@ -81,12 +81,12 @@ class MessageParser:
         all_players_message = ""
 
         if with_characteristic:
-            for player_name, characteristic in player_list:
-                all_players_message += "{0}.{1} ({2})\n".format(i, player_name, characteristic)
+            for player_name, characteristic, rating in player_list:
+                all_players_message += "{0}.{1} = {3:.2f} ({2})\n".format(i, player_name, characteristic, rating)
                 i += 1
         else:
-            for player_name in player_list:
-                all_players_message += "{0}.{1}\n".format(i, player_name)
+            for player_name, _, rating in player_list:
+                all_players_message += "{0}.{1} = {2}\n".format(i, player_name, rating)
                 i += 1
 
         # Removes the last "\n" in the string if the string isn't trivial
@@ -127,8 +127,9 @@ class MessageParser:
         if teams:
             message += "\nלהלן הקבוצות שנוצרו עבור המשחק:\n"
             for team_index, team in enumerate(teams):
-                message += "קבוצה {0}: (ציון הקבוצה - {1:.2f})\n".format(team_index + 1, team[TConsts.MATCHDAYS_SPECIFIC_TEAM_RATING_KEY])
                 players = team[TConsts.MATCHDAYS_SPECIFIC_TEAM_ROSTER_KEY]
+                field_players_ratings = [player[TConsts.MATCHDAYS_SPECIFIC_TEAM_PLAYER_RATING_KEY] for player in players if player[TConsts.PLAYERS_CHARACTERISTICS_KEY] != TConsts.PlayerCharacteristics["GOALKEEPER"]]
+                message += "קבוצה {0}: (ציון - {1:.2f}, ממוצע - {2:.2f})\n".format(team_index + 1, team[TConsts.MATCHDAYS_SPECIFIC_TEAM_RATING_KEY], sum(field_players_ratings) / len(field_players_ratings))
                 for player_index, player in enumerate(players):
                     message += "{0}.{1} - {2:.2f} ({3})\n".format(player_index + 1, player[TConsts.PLAYERS_NAME_KEY],
                                                       player[TConsts.MATCHDAYS_SPECIFIC_TEAM_PLAYER_RATING_KEY],
