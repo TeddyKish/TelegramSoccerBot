@@ -74,6 +74,15 @@ class TFABApplication(object):
                                                               list(TConsts.TeamGenerationParameters.values())))),
                     MessageHandler(filters.TEXT & ~filters.COMMAND, SettingsMenuHandlers.parameters_menu_handler)
                 ],
+                TFABMenuHierarchy.MATCHDAYS_MENU_SETTINGS_CONSTRAINTS: [
+                    CallbackQueryHandler(SettingsMenuHandlers.creating_constraints_menu,
+                                         pattern=(str(TFABMenuHierarchy.MATCHDAYS_CONSTRAINTS_CREATE_COUPLING) +
+                                                "|" + str(TFABMenuHierarchy.MATCHDAYS_CONSTRAINTS_CREATE_DECOUPLING))),
+                    CallbackQueryHandler(SettingsMenuHandlers.delete_constraints_handler,
+                                         pattern=(str(TFABMenuHierarchy.MATCHDAYS_CONSTRAINTS_DELETE))),
+                    CallbackQueryHandler(SettingsMenuHandlers.show_constraints_handler,
+                                         pattern=(str(TFABMenuHierarchy.MATCHDAYS_CONSTRAINTS_SHOW_ACTIVE)))
+                ],
                 TFABMenuHierarchy.ADMIN_MENU_PLAYERS: [
                     CallbackQueryHandler(PlayersMenuHandlers.add_player_handler,
                                          pattern=str(TFABMenuHierarchy.PLAYERS_MENU_ADD)),

@@ -1,6 +1,6 @@
 from tfab_framework.tfab_exception import TFABApplicationError
 from tfab_framework.application.menus.menu_utils import TFABMenuHierarchy, UserDataIndices
-from tfab_framework.application.menus.admin_handlers import MatchdaysMenuHandlers, PlayersMenuHandlers, AdminMenuHandlers
+from tfab_framework.application.menus.admin_handlers import MatchdaysMenuHandlers, PlayersMenuHandlers, AdminMenuHandlers, SettingsMenuHandlers
 from tfab_framework.application.menus.rankers_handlers import RankersMenuHandlers
 
 from telegram import Update
@@ -30,5 +30,7 @@ class InputRoutingHandlers(object):
             return await RankersMenuHandlers.rank_everyone_handler(update, context)
         elif context.user_data[UserDataIndices.CURRENT_STATE] == TFABMenuHierarchy.MATCHDAYS_MENU_SET_TODAY_LIST:
             return await MatchdaysMenuHandlers.set_todays_list_handler(update, context)
+        elif context.user_data[UserDataIndices.CURRENT_STATE] in [TFABMenuHierarchy.MATCHDAYS_CONSTRAINTS_CREATE_DECOUPLING, TFABMenuHierarchy.MATCHDAYS_CONSTRAINTS_CREATE_COUPLING]:
+            return await SettingsMenuHandlers.creating_constraints_menu(update, context)
         else:
             raise TFABApplicationError("text input handler reached invalid state")

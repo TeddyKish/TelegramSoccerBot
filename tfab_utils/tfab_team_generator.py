@@ -1,6 +1,6 @@
 import random, math
 from tfab_framework.tfab_consts import Consts as TConsts
-from pulp import LpProblem, LpVariable, LpMinimize, lpSum, value, PULP_CBC_CMD
+from pulp import LpProblem, LpVariable, LpMinimize, lpSum, value, PULP_CBC_CMD, LpStatus, LpStatusInfeasible
 
 
 class TeamGenerator(object):
@@ -30,6 +30,7 @@ class TeamGenerator(object):
             decoupling_constraints = []
 
         result_list = []
+        player_name_to_index = {}
 
         for _ in range(num_teams):
             result_list.append({TConsts.MATCHDAYS_SPECIFIC_TEAM_ROSTER_KEY: [],
@@ -55,6 +56,23 @@ class TeamGenerator(object):
         # Enforce that each member is assigned to exactly one group
         for i in range(num_members):
             prob += lpSum(x[i, j] for j in range(num_teams)) == 1, f"AssignOnce_{i}"
+            player_name_to_index[sorted_players[i][TConsts.PLAYERS_NAME_KEY]] = i
+
+        for entry in coupling_constraints:
+            for curr_name, next_name in zip(entry, entry[1:]):
+                curr_player_index = player_name_to_index[curr_name]
+                next_player_index = player_name_to_index[next_name]
+
+                for j in range(num_teams):
+                    prob += x[curr_player_index, j] == x[next_player_index, j], f"Coupling_{curr_player_index}_{next_player_index}_{j}"
+
+        for entry in decoupling_constraints:
+            index_list = []
+            for player in entry:
+                index_list.append(player_name_to_index[player])
+
+            for j in range(num_teams):
+                prob += lpSum(x[i, j] for i in index_list) <= 1
 
         equal_sized_teams = (num_members % num_teams) == 0
         # Enforce that each group has the same amount of team members, or at most one additional member than the others
@@ -157,6 +175,8 @@ class TeamGenerator(object):
                                   # Set random seed to ensure reproducability, passes as command-line arg to solver
                                   options=[f"RandomS {seed}"])
         prob.solve(cbc_solver)
+        if prob.status == LpStatusInfeasible:
+            return None
 
         for i in range(num_members):
             for j in range(num_teams):

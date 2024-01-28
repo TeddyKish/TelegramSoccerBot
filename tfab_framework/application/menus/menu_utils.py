@@ -25,13 +25,14 @@ class TFABMenuHierarchy(object):
                     MATCHDAYS_MENU_SETTINGS_CONSTRAINTS, \
                         MATCHDAYS_CONSTRAINTS_CREATE_COUPLING, \
                         MATCHDAYS_CONSTRAINTS_CREATE_DECOUPLING, \
+                        MATCHDAYS_CONSTRAINTS_DELETE, \
                         MATCHDAYS_CONSTRAINTS_SHOW_ACTIVE, \
                     MATCHDAYS_MENU_SETTINGS_PARAMETERS, \
             ADMIN_MENU_PLAYERS, \
                 PLAYERS_MENU_ADD, \
                 PLAYERS_MENU_SHOW, \
                 PLAYERS_MENU_EDIT, \
-                PLAYERS_MENU_DELETE = range(24)
+                PLAYERS_MENU_DELETE = range(25)
 
 class UpdateTypes(object):
     CALLBACK_QUERY = 0

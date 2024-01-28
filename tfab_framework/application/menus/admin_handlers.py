@@ -157,7 +157,12 @@ class MatchdaysMenuHandlers(object):
              enforce_offense=db.get_configuration_value(TConsts.TeamGenerationParameters["BLC_OFFENSE"]),
              enforce_total_roles=db.get_configuration_value(TConsts.TeamGenerationParameters["BLC_ROLES"]),
              num_teams=db.get_configuration_value(TConsts.TeamGenerationParameters["NUM_TEAMS"]),
-             coupling_constraints=None, decoupling_constraints=None)
+             coupling_constraints=todays_matchday[TConsts.MATCHDAYS_COUPLING_CONSTRAINTS_KEY],
+             decoupling_constraints=todays_matchday[TConsts.MATCHDAYS_DECOUPLING_CONSTRAINTS_KEY])
+        if not teams_dict:
+            await context.bot.send_message( chat_id=update.effective_chat.id,text="בלתי אפשרי לייצר כוחות מתאימים, שנה את הפרמטרים או מחק אילוצים")
+            context.user_data[UserDataIndices.CONTEXTUAL_LAST_OPERATION_STATUS] = False
+            return await CommonHandlers.entrypoint_handler(update, context)
         if not db.insert_teams_to_matchday(today_date, teams_dict):
             # Impossible because we already checked that there is a matchday occuring today
             await CommonHandlers.illegal_situation_handler(update, context)
@@ -227,7 +232,8 @@ class MatchdaysMenuHandlers(object):
                 result_dictionary[TConsts.MATCHDAYS_ORIGINAL_MESSAGE_KEY],
                 result_dictionary[TConsts.MATCHDAYS_LOCATION_KEY],
                 result_dictionary[TConsts.MATCHDAYS_ROSTER_KEY],
-                result_dictionary[TConsts.MATCHDAYS_DATE_KEY])
+                result_dictionary[TConsts.MATCHDAYS_DATE_KEY],
+                )
 
             await context.bot.send_message(chat_id=update.effective_chat.id,
                                                text="הרשימה תקינה ונקלטה בהצלחה")
@@ -467,6 +473,59 @@ class SettingsMenuHandlers(object):
     """
     Encompasses the complicated operations of the Settings menu.
     """
+    @staticmethod
+    async def delete_constraints_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """
+        Deletes the current constraints.
+        """
+        if HandlerUtils.get_update_type(update) != UpdateTypes.CALLBACK_QUERY:
+            await CommonHandlers.illegal_situation_handler(update, context)
+
+        await update.callback_query.answer()
+        today_date = datetime.now().strftime(TConsts.MATCHDAYS_DATE_FORMAT)
+
+        if TFABDBHandler.get_instance().insert_constraints_to_matchday(date=today_date, absolute=True):
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="האילוצים נמחקו.")
+            context.user_data[UserDataIndices.CONTEXTUAL_LAST_OPERATION_STATUS] = True
+        else:
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="קרתה תקלה בעת מחיקת האילוצים.")
+            context.user_data[UserDataIndices.CONTEXTUAL_LAST_OPERATION_STATUS] = False
+        return await CommonHandlers.entrypoint_handler(update, context)
+
+    @staticmethod
+    async def show_constraints_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """
+        Shows the current constraints.
+        """
+        if HandlerUtils.get_update_type(update) != UpdateTypes.CALLBACK_QUERY:
+            await CommonHandlers.illegal_situation_handler(update, context)
+
+        await update.callback_query.answer()
+        today_date = datetime.now().strftime(TConsts.MATCHDAYS_DATE_FORMAT)
+        matchday = TFABDBHandler.get_instance().get_matchday(today_date)
+        couplings = matchday[TConsts.MATCHDAYS_COUPLING_CONSTRAINTS_KEY]
+        decouplings = matchday[TConsts.MATCHDAYS_DECOUPLING_CONSTRAINTS_KEY]
+
+        output = ""
+        if couplings:
+            output += "להלן רשימת האילוצים הנוכחית:\n"
+            for index, entry in enumerate(couplings):
+                output += "{0}.{1}\n".format(index + 1, ",".join(entry))
+        else:
+            output += "לא קיימים אילוצים כרגע.\n"
+
+        output += "\n"
+
+        if decouplings:
+            output += "להלן רשימת ההפרדות הנוכחית:\n"
+            for index, entry in enumerate(decouplings):
+                output += "{0}.{1}\n".format(index + 1, ",".join(entry))
+        else:
+            output += "לא קיימות הפרדות כרגע.\n"
+
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=output)
+        context.user_data[UserDataIndices.CONTEXTUAL_LAST_OPERATION_STATUS] = True
+        return await CommonHandlers.entrypoint_handler(update, context)
 
     @staticmethod
     async def constraints_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -483,11 +542,64 @@ class SettingsMenuHandlers(object):
         keyboard = [
             [InlineKeyboardButton("הצג אילוצים", callback_data=str(TFABMenuHierarchy.MATCHDAYS_CONSTRAINTS_SHOW_ACTIVE))],
             [InlineKeyboardButton("הצמד שחקנים", callback_data=str(TFABMenuHierarchy.MATCHDAYS_CONSTRAINTS_CREATE_COUPLING)),
-             InlineKeyboardButton("הפרד שחקנים", callback_data=str(TFABMenuHierarchy.MATCHDAYS_CONSTRAINTS_CREATE_DECOUPLING))]
+             InlineKeyboardButton("הפרד שחקנים", callback_data=str(TFABMenuHierarchy.MATCHDAYS_CONSTRAINTS_CREATE_DECOUPLING))],
+            [InlineKeyboardButton("מחק אילוצים", callback_data=str(TFABMenuHierarchy.MATCHDAYS_CONSTRAINTS_DELETE))]
         ]
 
         await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
         return TFABMenuHierarchy.MATCHDAYS_MENU_SETTINGS_CONSTRAINTS
+
+    @staticmethod
+    async def creating_constraints_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """
+        Handles the settings->constraints->couple/decouple menu.
+        """
+        user_data = context.user_data
+        update_type = HandlerUtils.get_update_type(update)
+
+        if update_type == UpdateTypes.OTHER:
+            tfab_logger.log("Illegal state in bot.", tfab_logger.CRIT)
+            return await CommonHandlers.illegal_situation_handler(update, context)
+        elif update_type == UpdateTypes.CALLBACK_QUERY:
+            query = update.callback_query
+            await query.answer()
+
+            if query.data == str(TFABMenuHierarchy.MATCHDAYS_CONSTRAINTS_CREATE_COUPLING):
+                user_data[UserDataIndices.CURRENT_STATE] = TFABMenuHierarchy.MATCHDAYS_CONSTRAINTS_CREATE_COUPLING
+                await query.edit_message_text("""שלח רשימת שחקנים שתרצה להצמיד, כל אחד בשורה נפרדת""")
+                return TFABMenuHierarchy.GOT_INPUT
+            elif query.data == str(TFABMenuHierarchy.MATCHDAYS_CONSTRAINTS_CREATE_DECOUPLING):
+                user_data[UserDataIndices.CURRENT_STATE] = TFABMenuHierarchy.MATCHDAYS_CONSTRAINTS_CREATE_DECOUPLING
+                await query.edit_message_text("""שלח רשימת שחקנים שתרצה להפריד, כל אחד בשורה נפרדת""")
+                return TFABMenuHierarchy.GOT_INPUT
+            else:
+                # The data of the query doesn't match any legal values
+                tfab_logger.error("Received illegal query data")
+                return await CommonHandlers.illegal_situation_handler(update, context)
+        elif update_type == UpdateTypes.TEXTUAL_MESSAGE:
+            # The user entered a list of players to couple/decouple
+            player_list = []
+
+            for player in update.message.text.splitlines():
+                player = player.strip()
+                if TFABDBHandler.get_instance().check_player_existence(player):
+                    player_list.append(player)
+
+            if player_list:
+                output = "קלטתי את השחקנים: {0}".format(",".join(player_list))
+                await context.bot.send_message(chat_id=update.effective_chat.id, text=output)
+                today_date = datetime.now().strftime(TConsts.MATCHDAYS_DATE_FORMAT)
+
+                if user_data[UserDataIndices.CURRENT_STATE] == TFABMenuHierarchy.MATCHDAYS_CONSTRAINTS_CREATE_COUPLING:
+                    TFABDBHandler.get_instance().insert_constraints_to_matchday(today_date, couplings=[player_list])
+                elif user_data[UserDataIndices.CURRENT_STATE] == TFABMenuHierarchy.MATCHDAYS_CONSTRAINTS_CREATE_DECOUPLING:
+                    TFABDBHandler.get_instance().insert_constraints_to_matchday(today_date, decouplings=[player_list])
+
+                user_data[UserDataIndices.CONTEXTUAL_LAST_OPERATION_STATUS] = True
+            else:
+                user_data[UserDataIndices.CONTEXTUAL_LAST_OPERATION_STATUS] = False
+
+            return await CommonHandlers.entrypoint_handler(update, context)
 
     @staticmethod
     async def parameters_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):

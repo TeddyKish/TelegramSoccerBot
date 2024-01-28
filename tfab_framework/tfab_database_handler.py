@@ -136,7 +136,8 @@ class TFABDBHandler(object):
         except Exception as e:
             raise tfab_exception.TFABDatabaseError("TFAB Database Error occurred: " + str(e))
 
-    def insert_matchday(self, original_message, location, player_list, date):
+    def insert_matchday(self, original_message, location, player_list, date,
+                        coupling_constraints=None, decoupling_constraints=None):
         """
         Inserts <matchday_dict> to the DB.
         If there is a matchday on the same date, it deletes the previous matchday and sets the current one as new.
@@ -146,6 +147,11 @@ class TFABDBHandler(object):
             raise tfab_exception.TFABDatabaseError(
                 "TFAB Database Error occurred: Illegal data when inserting a new matchday")
 
+        if coupling_constraints is None:
+            coupling_constraints = []
+        if decoupling_constraints is None:
+            decoupling_constraints = []
+
         if self.check_matchday_existence(date):
             if not self.delete_matchday(date):
                 raise tfab_exception.TFABDatabaseError("TFAB Database Error occurred: Couldn't delete existing matchday")
@@ -154,7 +160,9 @@ class TFABDBHandler(object):
                          TConsts.MATCHDAYS_LOCATION_KEY: location,
                          TConsts.MATCHDAYS_ROSTER_KEY: player_list,
                          TConsts.MATCHDAYS_DATE_KEY: date,
-                         TConsts.MATCHDAYS_TEAMS_KEY: []}
+                         TConsts.MATCHDAYS_TEAMS_KEY: [],
+                         TConsts.MATCHDAYS_COUPLING_CONSTRAINTS_KEY: coupling_constraints,
+                         TConsts.MATCHDAYS_DECOUPLING_CONSTRAINTS_KEY: decoupling_constraints}
 
         matchdays_collection = self.__get_collection(TConsts.MATCHDAYS_COLLECTION_NAME)
 
@@ -319,6 +327,38 @@ class TFABDBHandler(object):
             raise tfab_exception.TFABDatabaseError("TFAB Database Error occurred: " + str(e))
 
         # Not checking modified_count, to allow an admin to generate the same teams without triggering errors
+        return results.matched_count == 1
+
+    def insert_constraints_to_matchday(self, date, couplings=None, decouplings=None, absolute=False):
+        """
+        Inserts the couplings and decouplings to the matchday occuring at <date>.
+        :param absolute: Whether to override the current value or not.
+        :param date: The date of the relevant matchday.
+        :param couplings: A list where each entry consists of players that must be coupled.
+        :param decouplings: A list where each entry consists of players that must be decoupled.
+        :return: True if the entry was found successfully.
+        """
+        if couplings is None:
+            couplings = []
+        if decouplings is None:
+            decouplings = []
+
+        relevant_matchday = self.get_matchday(date)
+        if not relevant_matchday:
+            return
+
+        matchdays_collection = self.__get_collection(TConsts.MATCHDAYS_COLLECTION_NAME)
+        filter_object = {TConsts.MATCHDAYS_DATE_KEY: date}
+
+        update_operation = {'$set': {TConsts.MATCHDAYS_COUPLING_CONSTRAINTS_KEY: couplings if absolute else relevant_matchday[TConsts.MATCHDAYS_COUPLING_CONSTRAINTS_KEY] + couplings,
+                                     TConsts.MATCHDAYS_DECOUPLING_CONSTRAINTS_KEY: decouplings if absolute else relevant_matchday[TConsts.MATCHDAYS_DECOUPLING_CONSTRAINTS_KEY] + decouplings}}
+
+        try:
+            results = matchdays_collection.update_one(filter_object, update_operation)
+        except Exception as e:
+            raise tfab_exception.TFABDatabaseError("TFAB Database Error occurred: " + str(e))
+
+        # If the same constraints have been applied
         return results.matched_count == 1
 
     def get_player_characteristic(self, player_name):
