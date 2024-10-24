@@ -41,7 +41,8 @@ class MessageParser:
             match = pattern.search(line.strip())
 
             if match:
-                return match.group(1).strip()
+                place = match.group(1).strip()
+                return place if place != "" else None
 
         return None
 
@@ -66,7 +67,11 @@ class MessageParser:
             if match:
                 if not first_part_started:
                     first_part_started = True
-                players.append(re.sub(name_characters_blacklist, "", match.group(1).strip()))
+
+                player = re.sub(name_characters_blacklist, "", match.group(1).strip())
+
+                if player != "":
+                    players.append(player)
             elif first_part_started:
                 break
 

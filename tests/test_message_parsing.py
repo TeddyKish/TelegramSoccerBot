@@ -1,3 +1,5 @@
+import datetime
+import time
 import re
 import os
 import pytest
@@ -55,6 +57,72 @@ with open(os.path.join(expected_dir, "player_list_sizes"), "r", encoding="utf-8"
 
 class TestMessageParsing:
 
+    def test_extract_final_lists_from_message_history(self):
+        """
+        Extracts all finalized rosters from all games that appear in the contents of all hist files under ./tfab_data/.
+        """
+        messages = []
+
+        for file in os.listdir("../tfab_data"):
+            if "hist" in file:
+                with open(f"../tfab_data/{file}", encoding="utf-8") as hfile:
+                    # Find all messages using re.findall
+                    if file == "hist1.txt":
+                        pattern = r"(\d{2}/\d{2}/\d{4}, \d{1,2}:\d{2} - .+?:) (.*?)(?=\d{2}/\d{2}/\d{4}, \d{1,2}:\d{2} -|$)"
+                    else:
+                        pattern = r"(\[\d{1,2}\.\d{1,2}\.\d{4}, \d{1,2}:\d{2}:\d{2}\] [^\:]+:) (.*?)(?=\[\d{1,2}\.\d{1,2}\.\d{4}, \d{1,2}:\d{2}:\d{2}\]|$)"
+
+                    curr_matches = re.findall(pattern, hfile.read(), re.DOTALL)
+                    messages += curr_matches
+
+        actual_lists = {}
+        problematic_lists = {}
+
+        for msg in messages:
+            # Validate that there are no date errors
+            list_sending_date = MessageParser._get_date_value(msg[0])
+
+            result_dict = MessageParser.parse_matchday_message(msg[1])
+
+            if len(result_dict[TConsts.MATCHDAYS_ROSTER_KEY]) != 0 and \
+                result_dict[TConsts.MATCHDAYS_DATE_KEY] is not None and \
+                result_dict[TConsts.MATCHDAYS_LOCATION_KEY] is not None and \
+                result_dict[TConsts.MATCHDAYS_ORIGINAL_MESSAGE_KEY] is not None:
+
+                if time.strptime(list_sending_date, TConsts.MATCHDAYS_DATE_FORMAT) > \
+                    time.strptime(result_dict[TConsts.MATCHDAYS_DATE_KEY], TConsts.MATCHDAYS_DATE_FORMAT) and \
+                        result_dict[TConsts.MATCHDAYS_DATE_KEY] != "07-01-2022":
+                    continue
+
+                if len(result_dict[TConsts.MATCHDAYS_ROSTER_KEY]) < 17:
+                    continue
+
+                actual_lists[result_dict[TConsts.MATCHDAYS_DATE_KEY]] = result_dict
+            elif result_dict[TConsts.MATCHDAYS_LOCATION_KEY] is not None and len(result_dict[TConsts.MATCHDAYS_ROSTER_KEY]) != 0:
+                problematic_lists[list_sending_date] = result_dict
+
+        # Include actual-problematic lists (with manual investigation unfortunately..)
+        for date in ["30-08-2022", "28-01-2023"]:
+            actual_lists[date] = problematic_lists[date]
+
+        matchday_player_appearances = {}
+
+        for date, match_dict in actual_lists.items():
+            for player in match_dict[TConsts.MATCHDAYS_ROSTER_KEY]:
+                if player not in matchday_player_appearances.keys():
+                    matchday_player_appearances[player] = 1
+                else:
+                    matchday_player_appearances[player] += 1
+
+            sorted_appearances = dict(sorted(matchday_player_appearances.items(), key=lambda item: item[1], reverse=True))
+
+        with open(f"../tfab_data/appearances-{datetime.datetime.now().strftime(TConsts.MATCHDAYS_DATE_FORMAT)}.txt", "w+", encoding="utf-8") as app_file:
+            for player, appearances in sorted_appearances.items():
+                app_file.write(f"{player} -> {appearances}\n")
+
+        assert True == True
+
+
     @pytest.mark.parametrize("parameters", [
         (first_message, first_dict),
         (second_message, second_dict)
@@ -78,14 +146,3 @@ class TestMessageParsing:
 
         pattern = re.compile(r"\d{2}-\d{2}-\d{4}")
         assert pattern.search(result_dict[TConsts.MATCHDAYS_DATE_KEY].strip())
-
-        # for player in result_dict[TConsts.MATCHDAYS_ROSTER_KEY]:
-        #     if player not in matchday_player_appearances.keys():
-        #         matchday_player_appearances[player] = 1
-        #     else:
-        #         matchday_player_appearances[player] += 1
-        #
-        # sorted_appearances = dict(sorted(matchday_player_appearances.items(), key=lambda item: item[1], reverse=True))
-        #
-        # for player, appearances in sorted_appearances.items():
-        #     print(f"{player} -> {appearances}")
